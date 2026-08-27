@@ -24,7 +24,7 @@ export default function Home() {
         <nav aria-label="Navegação principal">
           <a href="#projetos">Projetos</a>
           <a href="#sobre">Sobre</a>
-          <a className="nav-cta" href="https://wa.me/5511989735670?text=Ol%C3%A1%2C%20Gustavo!%20Vi%20seu%20portf%C3%B3lio%20e%20gostaria%20de%20conversar%20sobre%20um%20site." target="_blank" rel="noreferrer">Pedir orçamento</a>
+          <a className="nav-cta" href="https://wa.me/5511989735670?text=Ol%C3%A1%2C%20Gustavo!%20Vi%20seu%20portf%C3%B3lio%20e%20gostaria%20de%20conversar%20sobre%20um%20site." target="_blank" rel="noreferrer">WhatsApp</a>
         </nav>
       </header>
 
@@ -50,7 +50,7 @@ export default function Home() {
       </section>
 
       <div className="marquee" aria-hidden="true">
-        <div><span>DESENVOLVIMENTO WEB</span><b>✦</b><span>INTERFACES</span><b>✦</b><span>SITES RESPONSIVOS</span><b>✦</b><span>APRENDIZADO CONSTANTE</span><b>✦</b><span>DESENVOLVIMENTO WEB</span><b>✦</b><span>INTERFACES</span></div>
+        <div><span>DESENVOLVIMENTO WEB</span><b>✦</b><span>INTERFACES</span><b>✦</b><span>SITES RESPONSIVOS</span><b>✦</b><span>CONSTRUA SUA MARCA</span><b>✦</b><span>DESENVOLVIMENTO WEB</span><b>✦</b><span>INTERFACES</span></div>
       </div>
 
       <section className="section projects-section" id="projetos">
@@ -128,8 +128,8 @@ export default function Home() {
         <div className="about-grid">
           <h2>Ainda no começo,<br /><em>mas levando a sério.</em></h2>
           <div className="about-copy">
-            <p>Sou um jovem desenvolvedor de São Paulo apaixonado por tecnologia e boas experiências na web. Meu jeito de aprender é simples: escolher uma ideia, construir uma versão real e melhorar um detalhe de cada vez.</p>
-            <p>Hoje, meu foco é evoluir no desenvolvimento de sites e ajudar mais negócios a terem uma presença digital marcante.</p>
+            <p>Sou um jovem desenvolvedor web de São Paulo, focado em transformar ideias em sites claros, modernos e pensados para gerar confiança. Trabalho com atenção aos detalhes, comunicação transparente e compromisso em cada etapa do projeto.</p>
+            <p>Meu objetivo é ajudar negócios e profissionais a construírem uma presença digital que represente sua marca, facilite o contato com clientes e transmita profissionalismo desde o primeiro acesso.</p>
             <div className="availability"><span className="status-dot" />Portfólio em evolução constante</div>
           </div>
         </div>
