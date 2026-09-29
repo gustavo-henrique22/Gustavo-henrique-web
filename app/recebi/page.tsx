@@ -4,20 +4,23 @@ import {
   Calculator,
   ChartColumn,
   Check,
+  Eye,
   FileCheck2,
   FileSignature,
   FileSpreadsheet,
-  FolderKanban,
+  FileUp,
+  Globe,
   KeyRound,
-  LayoutDashboard,
   Lock,
-  Paperclip,
   PiggyBank,
   QrCode,
+  Repeat,
   ShieldCheck,
-  Smartphone,
   Sparkles,
+  Timer,
+  TrendingUp,
   Wallet,
+  WandSparkles,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -47,12 +50,26 @@ const PROFESSIONS = ["Designers", "Desenvolvedores", "Social media", "Fotógrafo
 const FEATURES = [
   {
     icon: FileSignature,
-    title: "Orçamentos com aprovação",
-    text: "O cliente abre o link, aprova com um clique e a cobrança é criada sozinha.",
+    title: "Orçamentos com aceite online",
+    text: "O cliente aprova pelo link com aceite eletrônico e a cobrança com Pix é criada sozinha.",
+  },
+  {
+    icon: WandSparkles,
+    title: "Assistente com IA",
+    text: "Pergunte “quanto lucrei este ano?” e receba a resposta com seus números. Ele também monta orçamentos.",
   },
   { icon: QrCode, title: "Cobranças com Pix", text: "QR Code e Pix copia e cola em cada cobrança. O dinheiro cai direto na sua conta." },
+  { icon: Repeat, title: "Cobranças recorrentes", text: "Cliente mensal? O Recebi gera e envia a cobrança todo mês, sem você lembrar." },
+  {
+    icon: FileUp,
+    title: "Importar extrato do banco",
+    text: "Traga o arquivo do seu banco: tudo categorizado, e as cobranças pagas dão baixa sozinhas.",
+  },
+  { icon: Eye, title: "Saiba quando o cliente abriu", text: "Um aviso na hora em que o cliente abre o orçamento ou a cobrança." },
+  { icon: Globe, title: "Sua página de serviços", text: "Vitrine com seus serviços e botão de pedir orçamento para a bio do Instagram." },
+  { icon: Timer, title: "Controle de horas", text: "Cronômetro por projeto. As horas viram cobrança com um clique." },
+  { icon: TrendingUp, title: "Previsão de caixa", text: "Veja como ficam os próximos meses e se prepare antes do mês fraco chegar." },
   { icon: FileCheck2, title: "Recibos automáticos", text: "Recibo com valor por extenso, pronto para imprimir ou enviar em PDF." },
-  { icon: LayoutDashboard, title: "Painel do mês", text: "Entradas, saídas, lucro, pendências e comparação com o mês anterior." },
   { icon: PiggyBank, title: "Sobra livre de verdade", text: "Separa o imposto estimado e mostra quanto você pode retirar com segurança." },
   {
     icon: BellRing,
@@ -65,10 +82,7 @@ const FEATURES = [
     text: "Faturamento do ano, categorias, melhores clientes e alerta perto do limite.",
   },
   { icon: Calculator, title: "Calculadora de preço", text: "Descubra o valor da sua hora considerando impostos, custos e férias." },
-  { icon: FolderKanban, title: "Clientes e projetos", text: "Quanto cada cliente já pagou e quanto cada projeto realmente rendeu." },
-  { icon: Paperclip, title: "Comprovantes guardados", text: "Anexe a nota ou o recibo em cada despesa e encontre na hora do imposto." },
-  { icon: Smartphone, title: "App no celular", text: "Instale na tela inicial e use como aplicativo, no Android ou no iPhone." },
-  { icon: FileSpreadsheet, title: "Pronto para o contador", text: "Exporte tudo para Excel com um clique no fechamento do mês ou do ano." },
+  { icon: FileSpreadsheet, title: "Pronto para o contador", text: "Comprovantes guardados e tudo exportado para Excel com um clique." },
 ];
 
 const FAQ = [
@@ -323,8 +337,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
                 `Até ${FREE_LIMITS.clients} clientes ativos`,
                 `${FREE_LIMITS.quotesPerMonth} orçamentos e ${FREE_LIMITS.invoicesPerMonth} cobranças por mês`,
                 "Pix, recibos e calculadora de preço",
-                "Painel com metas e imposto estimado",
-                "App no celular e exportação para Excel",
+                "Controle de horas e previsão de caixa",
+                "Página pública com pedidos de orçamento",
+                "Assistente com IA: 5 perguntas por dia",
               ]}
               href={cta.href}
               cta={user ? "Ir para o painel" : "Criar conta grátis"}
@@ -339,10 +354,11 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
               extra={`ou ${formatMoney(PRO_YEARLY_PRICE_CENTS)} por ano (2 meses grátis)`}
               items={[
                 "Tudo do plano Grátis, sem limites",
+                "Cobranças recorrentes automáticas",
+                "Importar extrato do banco",
+                "Assistente com IA: 60 perguntas por dia",
                 "Lembretes automáticos de cobrança",
-                "Relatórios por categoria e cliente",
-                "Comprovantes anexados às despesas",
-                "Sua logo em orçamentos, cobranças e recibos",
+                "Relatórios, comprovantes e sua logo",
                 "Sem a marca Recebi e suporte prioritário",
               ]}
               href={user ? `${APP_PATH}/plano` : `${BASE_PATH}/cadastro`}

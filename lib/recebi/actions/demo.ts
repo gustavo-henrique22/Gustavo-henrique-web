@@ -8,12 +8,9 @@ import { loginAttempts, users } from "@/db/schema";
 import { createSession, destroySession, getCurrentUser } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
 import { createDemoAccount } from "../demo-seed";
+import { sqliteTimestamp } from "../rate-limit";
 
 const DEMOS_PER_HOUR = 6;
-
-function sqliteTimestamp(ms: number): string {
-  return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
-}
 
 /** Cria uma conta de demonstração com dados fictícios e entra nela. */
 export async function startDemo(): Promise<void> {

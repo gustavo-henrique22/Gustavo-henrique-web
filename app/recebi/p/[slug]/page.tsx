@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description,
     openGraph: { title: `${name} — ${data.owner.headline}`, description, type: "profile" },
     alternates: { canonical: `${BASE_PATH}/p/${slug}` },
+    robots: data.owner.isDemo ? { index: false, follow: false } : undefined,
   };
 }
 

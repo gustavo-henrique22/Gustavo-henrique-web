@@ -1,8 +1,26 @@
 // Dados fictícios para a conta de demonstração, sempre relativos à data de hoje.
 import { getDb } from "@/db";
-import { clients, invoiceItems, invoices, projects, quoteItems, quotes, transactions, users } from "@/db/schema";
+import {
+  categoryRules,
+  clients,
+  documentEvents,
+  invoiceItems,
+  invoices,
+  notifications,
+  projects,
+  quoteItems,
+  quoteRequests,
+  quotes,
+  recurringInvoices,
+  services,
+  timeEntries,
+  transactions,
+  users,
+} from "@/db/schema";
 import { randomToken } from "./crypto";
-import { addDays, addMonths, currentMonth, todayISO } from "./dates";
+import { APP_PATH } from "./config";
+import { addDays, addMonths, currentMonth, firstMonthlyDate, todayISO } from "./dates";
+import { sqliteTimestamp } from "./rate-limit";
 
 type Row<T extends { $inferInsert: unknown }> = T["$inferInsert"];
 
@@ -39,6 +57,12 @@ export async function createDemoAccount(): Promise<string> {
     planExpiresAt: addDays(today, 1),
     isDemo: true,
     autoReminders: false,
+    hourlyRateCents: 12_000,
+    slug: `demo-${crypto.randomUUID().slice(0, 8)}`,
+    publicProfile: true,
+    headline: "Designer de marcas e social media para pequenos negócios",
+    bio: "Há 8 anos ajudo cafés, padarias, clínicas e lojas a terem uma marca forte e bonita nas redes.\nTrabalho com identidade visual, social media mensal e sites simples.",
+    monthlySummary: false,
   });
 
   const clientNames = ["Studio Lima", "Padaria Sol", "Café Aroma", "Clínica Bem Estar", "Loja Verde", "Academia Movimento"];
@@ -224,7 +248,9 @@ export async function createDemoAccount(): Promise<string> {
     addDays(today, -32),
   );
   invoice(4, "paga", addDays(today, -20), addDays(today, -12), [["Posts para Instagram", 8, 7_500]], addDays(today, -13));
-  invoice(3, "enviada", addDays(today, -14), addDays(today, -4), [["Desenvolvimento do site — 2ª parcela", 1, 325_000]]);
+  const overdueInvoice = invoice(3, "enviada", addDays(today, -14), addDays(today, -4), [
+    ["Desenvolvimento do site — 2ª parcela", 1, 325_000],
+  ]);
   const approvedInvoice = invoice(0, "enviada", addDays(today, -2), addDays(today, 5), [
     ["Social media — próximo mês", 1, 180_000],
     ["Fotos de produto", 12, 5_000],
@@ -257,8 +283,9 @@ export async function createDemoAccount(): Promise<string> {
     items.forEach(([description, quantity, unitPriceCents], position) =>
       quoteItemRows.push({ id: crypto.randomUUID(), quoteId: id, description, quantity, unitPriceCents, position }),
     );
+    return id;
   };
-  quote(
+  const approvedQuote = quote(
     0,
     "aprovado",
     addDays(today, -6),
@@ -269,17 +296,141 @@ export async function createDemoAccount(): Promise<string> {
     {
       decidedAt: `${addDays(today, -2)}T14:20:00.000Z`,
       invoiceId: approvedInvoice,
+      acceptedName: "Luiza Lima",
+      acceptedIp: "200.150.10.20",
+      viewedAt: `${addDays(today, -5)}T13:02:00.000Z`,
+      viewCount: 3,
     },
   );
-  quote(2, "enviado", addDays(today, -3), [
-    ["Redesign do cardápio", 1, 95_000],
-    ["Fotos dos pratos", 20, 4_000],
-  ]);
+  const sentQuote = quote(
+    2,
+    "enviado",
+    addDays(today, -3),
+    [
+      ["Redesign do cardápio", 1, 95_000],
+      ["Fotos dos pratos", 20, 4_000],
+    ],
+    { viewedAt: `${addDays(today, -1)}T18:40:00.000Z`, viewCount: 2 },
+  );
   quote(4, "recusado", addDays(today, -18), [["Loja virtual completa", 1, 1_200_000]], {
     decidedAt: `${addDays(today, -10)}T10:00:00.000Z`,
     decisionNote: "Gostamos muito, mas vamos deixar para o ano que vem.",
   });
   quote(5, "rascunho", today, [["Identidade para academia", 1, 350_000]]);
+
+  // Histórico dos documentos, avisos, horas, serviços, recorrência e regras.
+  const at = (date: string, time: string) => `${date} ${time}:00`;
+  const eventRows: Row<typeof documentEvents>[] = [];
+  const event = (documentType: "orcamento" | "cobranca", documentId: string, type: string, when: string, detail = "") =>
+    eventRows.push({ id: crypto.randomUUID(), userId, documentType, documentId, type, detail, createdAt: when });
+  event("orcamento", approvedQuote, "criado", at(addDays(today, -6), "12:10"));
+  event("orcamento", approvedQuote, "enviado", at(addDays(today, -6), "12:12"));
+  event("orcamento", approvedQuote, "visualizado", at(addDays(today, -5), "13:02"));
+  event("orcamento", approvedQuote, "aprovado", at(addDays(today, -2), "14:20"), "Aceite eletrônico de Luiza Lima");
+  event("orcamento", approvedQuote, "convertido", at(addDays(today, -2), "14:20"), "Cobrança #0004");
+  event("cobranca", approvedInvoice, "criado", at(addDays(today, -2), "14:20"), "A partir do orçamento #0001");
+  event("orcamento", sentQuote, "criado", at(addDays(today, -3), "09:30"));
+  event("orcamento", sentQuote, "enviado", at(addDays(today, -3), "09:31"));
+  event("orcamento", sentQuote, "visualizado", at(addDays(today, -1), "18:40"));
+  event("cobranca", overdueInvoice, "criado", at(addDays(today, -14), "10:00"));
+  event("cobranca", overdueInvoice, "enviado", at(addDays(today, -14), "10:01"));
+  event("cobranca", overdueInvoice, "visualizado", at(addDays(today, -13), "08:15"));
+  event("cobranca", overdueInvoice, "lembrete", at(addDays(today, -1), "09:00"), "3 dias após o vencimento");
+
+  const noticeRows: Row<typeof notifications>[] = [
+    {
+      id: crypto.randomUUID(),
+      userId,
+      type: "pedido",
+      title: "Novo pedido de orçamento: Rafael Mendes",
+      body: "Identidade visual · Vou abrir uma hamburgueria em novembro e preciso de marca e cardápio.",
+      href: `${APP_PATH}/pagina#pedidos`,
+      createdAt: sqliteTimestamp(Date.now() - 2 * 3_600_000),
+    },
+    {
+      id: crypto.randomUUID(),
+      userId,
+      type: "visualizado",
+      title: "Café Aroma abriu o orçamento #0002",
+      body: "Bom momento para mandar uma mensagem e tirar dúvidas.",
+      href: `${APP_PATH}/orcamentos/${sentQuote}`,
+      createdAt: at(addDays(today, -1), "18:40"),
+    },
+    {
+      id: crypto.randomUUID(),
+      userId,
+      type: "aprovado",
+      title: "Studio Lima aprovou o orçamento #0001 🎉",
+      body: "A cobrança #0004 foi criada automaticamente.",
+      href: `${APP_PATH}/cobrancas/${approvedInvoice}`,
+      readAt: at(addDays(today, -2), "15:00"),
+      createdAt: at(addDays(today, -2), "14:20"),
+    },
+  ];
+
+  const hour = (days: number, hours: number, project: number, description: string) => {
+    const start = new Date(`${addDays(today, -days)}T09:00:00-03:00`);
+    return {
+      id: crypto.randomUUID(),
+      userId,
+      projectId: p[project],
+      description,
+      startedAt: start.toISOString(),
+      endedAt: new Date(start.getTime() + hours * 3_600_000).toISOString(),
+      durationSeconds: Math.round(hours * 3600),
+    };
+  };
+  const timeRows: Row<typeof timeEntries>[] = [
+    hour(4, 2.5, 0, "Pesquisa de referências"),
+    hour(3, 3, 0, "Esboços do logotipo"),
+    hour(2, 1.5, 0, "Reunião de apresentação"),
+    hour(1, 4, 1, "Layout da página inicial"),
+  ];
+
+  const serviceRows: Row<typeof services>[] = [
+    ["Identidade visual", "Logotipo, paleta de cores, tipografia e manual de marca.", 150_000, "a-partir"],
+    ["Social media mensal", "12 posts por mês com legenda, agendados no seu Instagram.", 180_000, "fixo"],
+    ["Site institucional", "Site de até 5 páginas, rápido e fácil de atualizar.", 350_000, "a-partir"],
+    ["Consultoria de marca", "Uma conversa de 1 hora para destravar a comunicação do seu negócio.", 0, "consulta"],
+  ].map(([name, description, priceCents, priceType], position) => ({
+    id: crypto.randomUUID(),
+    userId,
+    name: name as string,
+    description: description as string,
+    priceCents: priceCents as number,
+    priceType: priceType as "fixo" | "a-partir" | "hora" | "consulta",
+    position,
+  }));
+
+  // Esta demonstração é pública por um dia; nada aqui é dado real.
+  const requestRow: Row<typeof quoteRequests> = {
+    id: crypto.randomUUID(),
+    userId,
+    serviceId: serviceRows[0].id,
+    name: "Rafael Mendes",
+    email: "rafael@hamburgueria.exemplo",
+    phone: "(11) 97654-3210",
+    message: "Vou abrir uma hamburgueria em novembro e preciso de marca e cardápio. Tenho algumas referências de estilo.",
+    createdAt: sqliteTimestamp(Date.now() - 2 * 3_600_000),
+  };
+
+  const recurringRow: Row<typeof recurringInvoices> = {
+    id: crypto.randomUUID(),
+    userId,
+    clientId: c[0],
+    projectId: p[2],
+    description: "Social media mensal",
+    amountCents: 180_000,
+    dayOfMonth: 5,
+    dueDays: 5,
+    nextDate: firstMonthlyDate(addDays(today, 1), 5),
+    autoSend: true,
+  };
+
+  const ruleRows: Row<typeof categoryRules>[] = [
+    { id: crypto.randomUUID(), userId, pattern: "adobe", type: "despesa", category: "Software e assinaturas" },
+    { id: crypto.randomUUID(), userId, pattern: "uber", type: "despesa", category: "Transporte" },
+  ];
 
   // Um lote por tabela, respeitando o limite de parâmetros do D1.
   await db.batch([
@@ -290,6 +441,13 @@ export async function createDemoAccount(): Promise<string> {
     ...chunk(invoiceItemRows, 12).map((rows) => db.insert(invoiceItems).values(rows)),
     ...chunk(quoteRows, 5).map((rows) => db.insert(quotes).values(rows)),
     ...chunk(quoteItemRows, 12).map((rows) => db.insert(quoteItems).values(rows)),
+    ...chunk(eventRows, 12).map((rows) => db.insert(documentEvents).values(rows)),
+    db.insert(notifications).values(noticeRows),
+    db.insert(timeEntries).values(timeRows),
+    db.insert(services).values(serviceRows),
+    db.insert(quoteRequests).values(requestRow),
+    db.insert(recurringInvoices).values(recurringRow),
+    db.insert(categoryRules).values(ruleRows),
   ] as unknown as Parameters<typeof db.batch>[0]);
 
   return userId;

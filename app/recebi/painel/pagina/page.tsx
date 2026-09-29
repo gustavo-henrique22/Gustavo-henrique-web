@@ -57,7 +57,9 @@ export default async function PublicPageSettings() {
             <h2 className="flex items-center gap-2 font-bold">
               <Inbox className="size-4" /> Pedidos de orçamento
               {fresh > 0 ? (
-                <span className="rounded-full bg-[#c9ff3c] px-2 text-xs font-extrabold text-[#101c34]">{fresh} novos</span>
+                <span className="rounded-full bg-[#c9ff3c] px-2 text-xs font-extrabold text-[#101c34]">
+                  {fresh} {fresh === 1 ? "novo" : "novos"}
+                </span>
               ) : null}
             </h2>
             {open.length === 0 ? (
