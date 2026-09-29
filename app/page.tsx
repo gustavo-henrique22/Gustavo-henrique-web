@@ -83,7 +83,7 @@ export default function Home() {
             <div className="project-visual web-visual" aria-hidden="true">
               <div className="code-window">
                 <div className="code-top"><i /><i /><i /><span>seu-site.tsx</span></div>
-                <div className="code-lines"><span>01&nbsp; const ideia =</span><b>"sua presença online"</b><span>03&nbsp; transformar(ideia)</span><span>04&nbsp; .em um site real</span><em>05&nbsp; publicado ✓</em></div>
+                <div className="code-lines"><span>01&nbsp; const ideia =</span><b>&quot;sua presença online&quot;</b><span>03&nbsp; transformar(ideia)</span><span>04&nbsp; .em um site real</span><em>05&nbsp; publicado ✓</em></div>
               </div>
             </div>
             <div className="project-content">
@@ -91,6 +91,24 @@ export default function Home() {
               <h3>Sites institucionais e portfólios</h3>
               <p>Crio sites para apresentar empresas, profissionais, eventos e produtos com clareza — incluindo portfólios, catálogos e cardápios digitais responsivos.</p>
               <ul className="tag-list" aria-label="Tipos de serviço"><li>Sites institucionais</li><li>Portfólios</li><li>Catálogos digitais</li><li>Cardápios digitais</li></ul>
+            </div>
+          </article>
+
+          <article className="project-card compact-project">
+            <div className="project-index">03</div>
+            <div className="project-visual saas-visual" aria-hidden="true">
+              <div className="saas-window">
+                <div className="saas-top"><b>✓</b><span>Recebi.</span></div>
+                <div className="saas-stats"><span><small>Recebido</small>R$ 8.420</span><span className="saas-dark"><small>Sobra livre</small>R$ 6.105</span></div>
+                <div className="saas-bars"><i style={{ height: "45%" }} /><i style={{ height: "60%" }} /><i style={{ height: "52%" }} /><i style={{ height: "74%" }} /><i style={{ height: "66%" }} /><i style={{ height: "90%" }} /></div>
+              </div>
+            </div>
+            <div className="project-content">
+              <div className="project-meta"><span>Produto próprio · SaaS</span><span className="project-status practice">No ar</span></div>
+              <h3>Recebi: finanças para freelancers</h3>
+              <p>Um sistema completo para freelancers e MEIs controlarem receitas e despesas, enviarem cobranças com Pix e acompanharem lucro, impostos e o limite do MEI.</p>
+              <ul className="tag-list" aria-label="Recursos"><li>Login e planos</li><li>Banco de dados</li><li>Pix com QR Code</li><li>Relatórios</li></ul>
+              <a className="project-link" href="/recebi">Conhecer o Recebi <ArrowUpRight size={16} /></a>
             </div>
           </article>
         </div>
