@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { InvoiceEditor } from "@/components/recebi/invoice-editor";
+import { DocumentEditor } from "@/components/recebi/document-editor";
 import { PageHeader } from "@/components/recebi/page-header";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -25,7 +25,8 @@ export default async function NewInvoicePage({ searchParams }: { searchParams: P
         <ArrowLeft className="size-4" /> Cobranças
       </Link>
       <PageHeader title="Nova cobrança" description="Monte a cobrança, gere o link e envie para o cliente pagar com Pix." />
-      <InvoiceEditor
+      <DocumentEditor
+        kind="invoice"
         clients={clients.map((c) => ({ id: c.id, name: c.name }))}
         projects={projectRows
           .filter((r) => r.project.status !== "concluido")

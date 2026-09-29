@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
@@ -10,11 +10,11 @@ import { hasPro, requireUser } from "../auth";
 import { INCOME_CATEGORIES } from "../categories";
 import { APP_PATH, FREE_LIMITS } from "../config";
 import { countInvoicesInMonth } from "../data";
-import { currentMonth, isValidISODate, todayISO } from "../dates";
+import { addDays, currentMonth, daysBetween, isValidISODate, todayISO } from "../dates";
 import { randomToken } from "../crypto";
+import { createInvoice, parseItems } from "../documents";
+import { sendInvoiceEmail, sendReceiptEmail } from "../notifications";
 import { parseMoney } from "../money";
-
-const MAX_ITEMS = 30;
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -27,30 +27,6 @@ async function findInvoice(userId: string, id: string) {
     .where(and(eq(invoices.userId, userId), eq(invoices.id, id)))
     .limit(1);
   return row ?? null;
-}
-
-type ParsedItem = { description: string; quantity: number; unitPriceCents: number };
-
-function parseItems(formData: FormData): ParsedItem[] | string {
-  const descriptions = formData.getAll("itemDescription").map((v) => String(v).trim().slice(0, 200));
-  const quantities = formData.getAll("itemQuantity").map((v) => String(v).trim());
-  const prices = formData.getAll("itemPrice").map((v) => String(v).trim());
-  const items: ParsedItem[] = [];
-
-  for (let i = 0; i < descriptions.length; i++) {
-    const description = descriptions[i];
-    const priceText = prices[i] ?? "";
-    if (!description && !priceText) continue; // linha em branco
-    if (!description) return `Descreva o item ${i + 1}.`;
-    const quantity = Number((quantities[i] || "1").replace(",", "."));
-    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 100_000) return `Quantidade inválida no item ${i + 1}.`;
-    const unitPriceCents = parseMoney(priceText);
-    if (unitPriceCents === null || unitPriceCents <= 0) return `Informe o valor do item ${i + 1}.`;
-    items.push({ description, quantity: Math.round(quantity * 100) / 100, unitPriceCents });
-  }
-  if (items.length === 0) return "Adicione pelo menos um item à cobrança.";
-  if (items.length > MAX_ITEMS) return `Use no máximo ${MAX_ITEMS} itens.`;
-  return items;
 }
 
 export async function saveInvoice(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -176,7 +152,13 @@ export async function markInvoicePaid(_: ActionState, formData: FormData): Promi
   if (invoice.status === "cancelada") return fail("Reative a cobrança antes de marcar como paga.");
 
   const db = getDb();
-  await db.update(invoices).set({ status: "paga", paidAt }).where(eq(invoices.id, id));
+  // Só registra se ainda estava em aberto: evita receita duplicada com clique duplo.
+  const updated = await db
+    .update(invoices)
+    .set({ status: "paga", paidAt })
+    .where(and(eq(invoices.id, id), eq(invoices.status, invoice.status)))
+    .returning({ id: invoices.id });
+  if (updated.length === 0) return fail("Esta cobrança já foi atualizada. Recarregue a página.");
   await db.insert(transactions).values({
     id: crypto.randomUUID(),
     userId: user.id,
@@ -190,8 +172,13 @@ export async function markInvoicePaid(_: ActionState, formData: FormData): Promi
     projectId: invoice.projectId,
     invoiceId: invoice.id,
   });
+  const receiptSent = text(formData, "sendReceipt") === "on" && (await sendReceiptEmail(invoice.id));
   refresh();
-  return success("Pagamento registrado! A receita já entrou nos seus lançamentos.");
+  return success(
+    receiptSent
+      ? "Pagamento registrado e recibo enviado ao cliente por e-mail."
+      : "Pagamento registrado! A receita já entrou nos seus lançamentos.",
+  );
 }
 
 export async function undoInvoicePayment(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -226,38 +213,31 @@ export async function duplicateInvoice(_: ActionState, formData: FormData): Prom
     return fail(`O plano Grátis permite ${FREE_LIMITS.invoicesPerMonth} cobranças por mês.`);
   }
 
-  const db = getDb();
-  const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-  const [{ next }] = await db
-    .select({ next: sql<number>`coalesce(max(${invoices.number}), 0) + 1` })
-    .from(invoices)
-    .where(eq(invoices.userId, user.id));
-  const newId = crypto.randomUUID();
+  const items = await getDb().select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id)).orderBy(asc(invoiceItems.position));
   const today = todayISO();
-  const dueOffsetDays = Math.max(
-    0,
-    Math.round((Date.parse(`${invoice.dueDate}T00:00:00Z`) - Date.parse(`${invoice.issueDate}T00:00:00Z`)) / 86_400_000),
-  );
-  const due = new Date(Date.parse(`${today}T00:00:00Z`) + dueOffsetDays * 86_400_000).toISOString().slice(0, 10);
-
-  await db.insert(invoices).values({
-    id: newId,
+  const created = await createInvoice({
     userId: user.id,
     clientId: invoice.clientId,
     projectId: invoice.projectId,
-    number: next,
-    publicToken: randomToken(18),
     status: "rascunho",
     issueDate: today,
-    dueDate: due,
+    // Mantém o mesmo prazo entre emissão e vencimento da cobrança original.
+    dueDate: addDays(today, Math.max(0, daysBetween(invoice.issueDate, invoice.dueDate))),
     discountCents: invoice.discountCents,
-    totalCents: invoice.totalCents,
     notes: invoice.notes,
+    items,
   });
-  const copies = items.map((item) => ({ ...item, id: crypto.randomUUID(), invoiceId: newId }));
-  for (let i = 0; i < copies.length; i += 10) {
-    await db.insert(invoiceItems).values(copies.slice(i, i + 10));
-  }
   refresh();
-  redirect(`${APP_PATH}/cobrancas/${newId}/editar`);
+  redirect(`${APP_PATH}/cobrancas/${created.id}/editar`);
+}
+
+export async function emailInvoice(_: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const invoice = await findInvoice(user.id, text(formData, "id", 64));
+  if (!invoice) return fail("Cobrança não encontrada.");
+  if (invoice.status !== "enviada") return fail("Só é possível enviar cobranças liberadas e ainda não pagas.");
+  const ok = await sendInvoiceEmail(user.id, invoice.id);
+  return ok
+    ? success("Cobrança enviada por e-mail ao cliente.")
+    : fail("Não foi possível enviar. Confira se o cliente tem e-mail cadastrado.");
 }

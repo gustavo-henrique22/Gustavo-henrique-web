@@ -6,8 +6,8 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
 import { createPasswordReset, requireAdmin } from "../auth";
+import { extendPro } from "../billing";
 import { APP_PATH, BASE_PATH } from "../config";
-import { addMonthsToDate, todayISO } from "../dates";
 import { siteOrigin } from "../origin";
 
 export async function setUserPlan(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -25,11 +25,7 @@ export async function setUserPlan(_: ActionState, formData: FormData): Promise<A
   }
   if (![1, 3, 6, 12].includes(months)) return fail("Período inválido.");
 
-  // Renovação soma a partir da validade atual, se ainda estiver valendo.
-  const today = todayISO();
-  const base = target.plan === "pro" && target.planExpiresAt && target.planExpiresAt > today ? target.planExpiresAt : today;
-  const expires = addMonthsToDate(base, months);
-  await db.update(users).set({ plan: "pro", planExpiresAt: expires }).where(eq(users.id, userId));
+  const expires = await extendPro(target, months);
   revalidatePath(APP_PATH, "layout");
   return success(`Pro ativado para ${target.email} até ${expires.split("-").reverse().join("/")}.`);
 }

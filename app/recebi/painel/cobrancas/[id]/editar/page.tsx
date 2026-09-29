@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { InvoiceEditor } from "@/components/recebi/invoice-editor";
+import { DocumentEditor } from "@/components/recebi/document-editor";
 import { PageHeader } from "@/components/recebi/page-header";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -28,7 +28,8 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
         <ArrowLeft className="size-4" /> Cobrança #{String(invoice.number).padStart(4, "0")}
       </Link>
       <PageHeader title={`Editar cobrança #${String(invoice.number).padStart(4, "0")}`} />
-      <InvoiceEditor
+      <DocumentEditor
+        kind="invoice"
         clients={clients.filter((c) => !c.archived || c.id === invoice.clientId).map((c) => ({ id: c.id, name: c.name }))}
         projects={projectRows.map((r) => ({ id: r.project.id, name: r.project.name, clientId: r.project.clientId }))}
         draft={{

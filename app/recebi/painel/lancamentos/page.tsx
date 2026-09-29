@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Check, Clock, Download, Pencil, Search, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Check, Clock, Download, Paperclip, Pencil, Search, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,11 @@ import { MonthSwitcher } from "@/components/recebi/month-switcher";
 import { PageHeader } from "@/components/recebi/page-header";
 import { EditTransactionDialog, NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { deleteTransaction, toggleTransactionStatus } from "@/lib/recebi/actions/finance";
-import { requireUser } from "@/lib/recebi/auth";
+import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { listClients, listProjects, listTransactions } from "@/lib/recebi/data";
 import { currentMonth, formatDateShort, isValidMonth, todayISO } from "@/lib/recebi/dates";
+import { filesEnabled } from "@/lib/recebi/files";
 import { formatMoney } from "@/lib/recebi/money";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ export const metadata: Metadata = { title: "Lançamentos" };
 
 const BASE = `${APP_PATH}/lancamentos`;
 
-type SearchParams = { mes?: string; tipo?: string; status?: string; q?: string; cliente?: string };
+type SearchParams = { mes?: string; tipo?: string; status?: string; q?: string; cliente?: string; novo?: string };
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser();
@@ -40,6 +41,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   ]);
   const projects = projectRows.map((r) => r.project);
   const today = todayISO();
+  const attachments = !filesEnabled() ? "hidden" : hasPro(user) && !user.isDemo ? "enabled" : "locked";
 
   const income = rows.filter((r) => r.transaction.type === "receita").reduce((s, r) => s + r.transaction.amountCents, 0);
   const expense = rows.filter((r) => r.transaction.type === "despesa").reduce((s, r) => s + r.transaction.amountCents, 0);
@@ -61,8 +63,20 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         description="Todas as suas receitas e despesas."
         actions={
           <>
-            <NewTransactionButton type="receita" clients={clients} projects={projects} />
-            <NewTransactionButton type="despesa" clients={clients} projects={projects} />
+            <NewTransactionButton
+              type="receita"
+              clients={clients}
+              projects={projects}
+              attachments={attachments}
+              defaultOpen={params.novo === "receita"}
+            />
+            <NewTransactionButton
+              type="despesa"
+              clients={clients}
+              projects={projects}
+              attachments={attachments}
+              defaultOpen={params.novo === "despesa"}
+            />
           </>
         }
       />
@@ -204,10 +218,24 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                     >
                       {t.status === "pago" ? <Clock /> : <Check />}
                     </ActionButton>
+                    {t.attachmentKey ? (
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon-sm"
+                        title={`Comprovante: ${t.attachmentName ?? ""}`}
+                        aria-label="Ver comprovante"
+                      >
+                        <a href={`${APP_PATH}/anexos/${t.id}`} target="_blank" rel="noreferrer">
+                          <Paperclip />
+                        </a>
+                      </Button>
+                    ) : null}
                     <EditTransactionDialog
                       transaction={t}
                       clients={clients}
                       projects={projects}
+                      attachments={attachments}
                       trigger={
                         <Button variant="ghost" size="icon-sm" title="Editar" aria-label="Editar">
                           <Pencil />

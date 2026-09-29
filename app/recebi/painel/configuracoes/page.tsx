@@ -1,10 +1,27 @@
+import { Sparkles, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { ActionButton } from "@/components/recebi/action-button";
 import { ActionForm } from "@/components/recebi/action-form";
 import { FormField, MoneyInput } from "@/components/recebi/fields";
 import { PageHeader } from "@/components/recebi/page-header";
-import { changePassword, deleteAccount, updateFinanceSettings, updatePaymentSettings, updateProfile } from "@/lib/recebi/actions/account";
-import { requireUser } from "@/lib/recebi/auth";
+import { InstallAppButton } from "@/components/recebi/pwa";
+import { ThemeSwitcher } from "@/components/recebi/theme";
+import {
+  changePassword,
+  deleteAccount,
+  removeLogo,
+  updateFinanceSettings,
+  updatePaymentSettings,
+  updateProfile,
+  updateReminders,
+  uploadLogo,
+} from "@/lib/recebi/actions/account";
+import { GOOGLE_ONLY_PASSWORD, hasPro, requireUser } from "@/lib/recebi/auth";
+import { APP_PATH } from "@/lib/recebi/config";
+import { emailEnabled } from "@/lib/recebi/email";
+import { filesEnabled, logoUrlFor } from "@/lib/recebi/files";
 import { normalizePixKey } from "@/lib/recebi/pix";
 
 export const metadata: Metadata = { title: "Configurações" };
@@ -33,9 +50,25 @@ function Section({
   );
 }
 
+function ProNotice({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-muted-foreground">{text}</p>
+      <Link
+        href={`${APP_PATH}/plano`}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-[#c9ff3c] px-3 py-1.5 text-xs font-bold text-[#101c34]"
+      >
+        <Sparkles className="size-3.5" /> Conhecer o Pro
+      </Link>
+    </div>
+  );
+}
+
 export default async function SettingsPage() {
   const user = await requireUser();
   const normalizedKey = normalizePixKey(user.pixKey);
+  const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
+  const logoUrl = logoUrlFor(user);
 
   return (
     <>
@@ -115,12 +148,97 @@ export default async function SettingsPage() {
           </ActionForm>
         </Section>
 
-        <Section title="Senha" description="Ao trocar a senha, os outros aparelhos conectados são desconectados.">
-          <ActionForm action={changePassword} submitLabel="Trocar senha" resetOnSuccess>
+        <Section title="Sua marca" description="Sua logo no topo das cobranças, orçamentos e recibos. Deixa tudo com cara de empresa.">
+          {!hasPro(user) ? (
+            <ProNotice text="Coloque sua logo nos documentos com o plano Pro." />
+          ) : !filesEnabled() ? (
+            <p className="text-sm text-muted-foreground">O armazenamento de arquivos não está ativo neste site.</p>
+          ) : (
+            <div className="grid gap-4">
+              {logoUrl ? (
+                <div className="flex items-center gap-4 rounded-xl border bg-muted/40 p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- logo enviada pelo usuário */}
+                  <img src={logoUrl} alt="Sua logo" className="max-h-14 w-auto max-w-[180px] rounded bg-white object-contain p-1" />
+                  <ActionButton
+                    action={removeLogo}
+                    fields={{}}
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-destructive hover:text-destructive"
+                  >
+                    <Trash2 /> Remover
+                  </ActionButton>
+                </div>
+              ) : null}
+              <ActionForm action={uploadLogo} submitLabel={logoUrl ? "Trocar logo" : "Enviar logo"} resetOnSuccess>
+                <FormField id="logo" label="Arquivo da logo" hint="PNG, JPG, WEBP ou SVG de até 1 MB. Fundo transparente fica melhor.">
+                  <Input
+                    id="logo"
+                    name="logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    required
+                    className="cursor-pointer"
+                  />
+                </FormField>
+              </ActionForm>
+            </div>
+          )}
+        </Section>
+
+        <Section
+          title="Lembretes automáticos"
+          description="O Recebi avisa seus clientes por e-mail 3 dias antes, no dia e 3 dias depois do vencimento das cobranças."
+        >
+          {!hasPro(user) ? (
+            <ProNotice text="Lembretes automáticos de cobrança fazem parte do plano Pro." />
+          ) : (
+            <ActionForm action={updateReminders}>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="autoReminders"
+                  defaultChecked={user.autoReminders}
+                  className="mt-0.5 size-4 accent-[var(--primary)]"
+                />
+                <span>
+                  <span className="font-medium">Enviar lembretes para clientes com cobranças em aberto</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {emailEnabled()
+                      ? "Só para clientes com e-mail cadastrado. As respostas vão direto para o seu e-mail."
+                      : "O envio de e-mails ainda não foi ativado pelo administrador do site."}
+                  </span>
+                </span>
+              </label>
+            </ActionForm>
+          )}
+        </Section>
+
+        <Section title="Aparência e app" description="Escolha o tema e instale o Recebi como aplicativo no celular ou no computador.">
+          <div className="flex flex-wrap items-center gap-3">
+            <ThemeSwitcher />
+            <InstallAppButton />
+          </div>
+        </Section>
+
+        <Section
+          title={googleOnly ? "Criar senha" : "Senha"}
+          description={
+            googleOnly
+              ? "Você entra com o Google. Se quiser, crie uma senha para entrar também com e-mail."
+              : "Ao trocar a senha, os outros aparelhos conectados são desconectados."
+          }
+        >
+          {user.googleSub && !googleOnly ? (
+            <p className="mb-4 text-sm text-muted-foreground">Sua conta também está conectada ao Google.</p>
+          ) : null}
+          <ActionForm action={changePassword} submitLabel={googleOnly ? "Criar senha" : "Trocar senha"} resetOnSuccess>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField id="current" label="Senha atual">
-                <Input id="current" name="current" type="password" autoComplete="current-password" required />
-              </FormField>
+              {!googleOnly ? (
+                <FormField id="current" label="Senha atual">
+                  <Input id="current" name="current" type="password" autoComplete="current-password" required />
+                </FormField>
+              ) : null}
               <FormField id="next" label="Nova senha">
                 <Input id="next" name="next" type="password" autoComplete="new-password" minLength={8} required />
               </FormField>
@@ -130,13 +248,19 @@ export default async function SettingsPage() {
 
         <Section
           title="Excluir conta"
-          description="Apaga sua conta e todos os seus dados para sempre. Exporte seus relatórios antes."
+          description="Apaga sua conta, seus arquivos e todos os seus dados para sempre. Exporte seus relatórios antes."
           danger
         >
           <ActionForm action={deleteAccount} submitLabel="Excluir minha conta" submitVariant="destructive">
-            <FormField id="delete-password" label="Confirme sua senha">
-              <Input id="delete-password" name="password" type="password" autoComplete="current-password" required />
-            </FormField>
+            {googleOnly ? (
+              <FormField id="delete-confirm" label="Digite EXCLUIR para confirmar">
+                <Input id="delete-confirm" name="confirm" autoComplete="off" required />
+              </FormField>
+            ) : (
+              <FormField id="delete-password" label="Confirme sua senha">
+                <Input id="delete-password" name="password" type="password" autoComplete="current-password" required />
+              </FormField>
+            )}
           </ActionForm>
         </Section>
       </div>

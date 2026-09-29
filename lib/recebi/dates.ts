@@ -95,6 +95,13 @@ export function formatDate(date: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
+/** "2026-09-28" → "28 de setembro de 2026". */
+export function formatDateLong(date: string | null | undefined): string {
+  if (!date) return "—";
+  const [y, m, d] = date.slice(0, 10).split("-").map(Number);
+  return `${d} de ${MONTHS[m - 1]} de ${y}`;
+}
+
 /** "2026-09-28" → "28 set". */
 export function formatDateShort(date: string): string {
   const [, m, d] = date.split("-").map(Number);

@@ -8,6 +8,7 @@ import { fail, success, text, type ActionState } from "../action-state";
 import {
   createPasswordReset,
   createSession,
+  GOOGLE_ONLY_PASSWORD,
   destroyAllSessions,
   destroySession,
   findValidPasswordReset,
@@ -17,7 +18,8 @@ import {
   verifyPassword,
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
-import { emailEnabled, sendEmail } from "../email";
+import { emailEnabled } from "../email";
+import { sendPasswordResetEmail, sendWelcomeEmail } from "../notifications";
 import { siteOrigin } from "../origin";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,6 +62,7 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
     isAdmin: await isAdminEmail(email),
   });
   await createSession(id);
+  await sendWelcomeEmail({ name, email });
   redirect(`${APP_PATH}?bem-vindo=1`);
 }
 
@@ -84,6 +87,7 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   const valid = user ? await verifyPassword(password, user.passwordHash) : (await hashPassword(password), false);
   if (!user || !valid) {
     await db.insert(loginAttempts).values({ id: crypto.randomUUID(), email });
+    if (user?.passwordHash === GOOGLE_ONLY_PASSWORD) return fail("Esta conta usa o login com Google. Clique em “Entrar com Google”.");
     return fail("E-mail ou senha incorretos.");
   }
 
@@ -105,14 +109,10 @@ export async function requestPasswordReset(_: ActionState, formData: FormData): 
   }
 
   const [user] = await getDb().select().from(users).where(eq(users.email, email)).limit(1);
-  if (user) {
+  if (user && !user.isDemo) {
     const token = await createPasswordReset(user.id);
     const link = `${await siteOrigin()}${BASE_PATH}/redefinir-senha/${token}`;
-    await sendEmail(
-      user.email,
-      "Redefinir sua senha do Recebi",
-      `<p>Olá, ${user.name.replace(/[<>&]/g, "")}!</p><p>Para criar uma nova senha, acesse o link abaixo (válido por 24 horas):</p><p><a href="${link}">${link}</a></p><p>Se não foi você, ignore este e-mail.</p>`,
-    );
+    await sendPasswordResetEmail(user, link);
   }
   return success("Se existir uma conta com este e-mail, enviamos um link para redefinir a senha.");
 }

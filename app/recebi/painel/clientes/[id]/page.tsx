@@ -1,14 +1,14 @@
-import { ArrowLeft, FileText, Mail, Phone } from "lucide-react";
+import { ArrowLeft, FileSignature, FileText, Mail, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { InvoiceStatusBadge } from "@/components/recebi/invoice-status";
+import { InvoiceStatusBadge, QuoteStatusBadge } from "@/components/recebi/invoice-status";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { getDb } from "@/db";
-import { invoices, transactions } from "@/db/schema";
+import { invoices, quotes, transactions } from "@/db/schema";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { getClient, listClients, listProjects } from "@/lib/recebi/data";
@@ -25,7 +25,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   if (!client) notFound();
 
   const db = getDb();
-  const [history, clientInvoices, clients, projectRows] = await Promise.all([
+  const [history, clientInvoices, clientQuotes, clients, projectRows] = await Promise.all([
     db
       .select()
       .from(transactions)
@@ -37,6 +37,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       .from(invoices)
       .where(and(eq(invoices.userId, user.id), eq(invoices.clientId, id)))
       .orderBy(desc(invoices.number))
+      .limit(50),
+    db
+      .select()
+      .from(quotes)
+      .where(and(eq(quotes.userId, user.id), eq(quotes.clientId, id)))
+      .orderBy(desc(quotes.number))
       .limit(50),
     listClients(user.id),
     listProjects(user.id),
@@ -83,6 +89,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             defaultClientId={client.id}
             label="Lançar receita"
           />
+          <Button asChild variant="outline">
+            <Link href={`${APP_PATH}/orcamentos/novo?cliente=${client.id}`}>
+              <FileSignature /> Novo orçamento
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href={`${APP_PATH}/cobrancas/nova?cliente=${client.id}`}>
               <FileText /> Nova cobrança
@@ -134,6 +145,25 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           )}
         </section>
         <div className="grid content-start gap-4">
+          <section className="rounded-2xl border bg-card p-5 shadow-xs">
+            <h2 className="mb-3 font-bold">Orçamentos</h2>
+            {clientQuotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum orçamento para este cliente.</p>
+            ) : (
+              <ul className="divide-y">
+                {clientQuotes.map((quote) => (
+                  <li key={quote.id}>
+                    <Link href={`${APP_PATH}/orcamentos/${quote.id}`} className="flex items-center gap-3 py-2.5 text-sm hover:underline">
+                      <span className="font-semibold">#{String(quote.number).padStart(4, "0")}</span>
+                      <span className="flex-1 text-muted-foreground">válido até {formatDate(quote.validUntil)}</span>
+                      <QuoteStatusBadge status={quote.status} validUntil={quote.validUntil} />
+                      <span className="font-semibold tabular">{formatMoney(quote.totalCents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           <section className="rounded-2xl border bg-card p-5 shadow-xs">
             <h2 className="mb-3 font-bold">Cobranças</h2>
             {clientInvoices.length === 0 ? (

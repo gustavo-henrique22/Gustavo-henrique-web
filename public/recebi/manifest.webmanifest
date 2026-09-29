@@ -1,0 +1,21 @@
+{
+  "name": "Recebi — finanças para freelancers",
+  "short_name": "Recebi",
+  "description": "Receitas, despesas, cobranças com Pix e relatórios num só lugar.",
+  "lang": "pt-BR",
+  "start_url": "/recebi/painel?origem=app",
+  "scope": "/recebi/",
+  "display": "standalone",
+  "background_color": "#101c34",
+  "theme_color": "#101c34",
+  "icons": [
+    { "src": "/recebi/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/recebi/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/recebi/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nova receita", "url": "/recebi/painel/lancamentos?novo=receita", "icons": [{ "src": "/recebi/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Nova cobrança", "url": "/recebi/painel/cobrancas/nova", "icons": [{ "src": "/recebi/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Novo orçamento", "url": "/recebi/painel/orcamentos/novo", "icons": [{ "src": "/recebi/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

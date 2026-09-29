@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { saveInvoice } from "@/lib/recebi/actions/invoices";
+import { saveQuote } from "@/lib/recebi/actions/quotes";
 import { APP_PATH } from "@/lib/recebi/config";
 import { centsToInput, formatMoney, parseMoney } from "@/lib/recebi/money";
 import { FormError } from "./form-error";
@@ -18,25 +19,57 @@ type Option = { id: string; name: string; clientId?: string | null };
 
 type Item = { key: number; description: string; quantity: string; price: string };
 
-export type InvoiceDraft = {
+export type DocumentDraft = {
   id?: string;
   status?: string;
   clientId?: string | null;
   projectId?: string | null;
   issueDate: string;
+  /** Vencimento (cobrança) ou validade (orçamento). */
   dueDate: string;
+  /** Só orçamentos: prazo de pagamento da cobrança gerada na aprovação. */
+  paymentTermDays?: number;
   discountCents: number;
   notes: string;
   items: { description: string; quantity: number; unitPriceCents: number }[];
 };
+
+const COPY = {
+  invoice: {
+    noun: "a cobrança",
+    secondDate: { name: "dueDate", label: "Vencimento" },
+    notesLabel: "Observações para o cliente",
+    notesPlaceholder: "Ex.: Pagamento via Pix. Após a confirmação, envio os arquivos finais.",
+    base: "cobrancas",
+  },
+  quote: {
+    noun: "o orçamento",
+    secondDate: { name: "validUntil", label: "Válido até" },
+    notesLabel: "Condições e observações",
+    notesPlaceholder: "Ex.: Entrega em 15 dias úteis após a aprovação. Inclui 2 rodadas de ajustes.",
+    base: "orcamentos",
+  },
+} as const;
 
 const selectClass =
   "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover";
 
 let nextKey = 1;
 
-export function InvoiceEditor({ draft, clients, projects }: { draft: InvoiceDraft; clients: Option[]; projects: Option[] }) {
-  const { state, pending, onSubmit } = useActionForm(saveInvoice);
+/** Editor de cobranças e orçamentos: cliente, datas, itens, desconto e total ao vivo. */
+export function DocumentEditor({
+  kind,
+  draft,
+  clients,
+  projects,
+}: {
+  kind: "invoice" | "quote";
+  draft: DocumentDraft;
+  clients: Option[];
+  projects: Option[];
+}) {
+  const copy = COPY[kind];
+  const { state, pending, onSubmit } = useActionForm(kind === "invoice" ? saveInvoice : saveQuote);
   const [clientId, setClientId] = useState(draft.clientId ?? "");
   const [discount, setDiscount] = useState(draft.discountCents ? centsToInput(draft.discountCents) : "");
   const [items, setItems] = useState<Item[]>(() =>
@@ -80,7 +113,7 @@ export function InvoiceEditor({ draft, clients, projects }: { draft: InvoiceDraf
                 <Link href={`${APP_PATH}/clientes`} className="font-semibold text-foreground underline">
                   Cadastre um cliente
                 </Link>{" "}
-                para criar a cobrança.
+                para criar {copy.noun}.
               </p>
             ) : (
               <select
@@ -107,9 +140,23 @@ export function InvoiceEditor({ draft, clients, projects }: { draft: InvoiceDraf
             <Input id="issueDate" name="issueDate" type="date" required defaultValue={draft.issueDate} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="dueDate">Vencimento</Label>
-            <Input id="dueDate" name="dueDate" type="date" required defaultValue={draft.dueDate} />
+            <Label htmlFor={copy.secondDate.name}>{copy.secondDate.label}</Label>
+            <Input id={copy.secondDate.name} name={copy.secondDate.name} type="date" required defaultValue={draft.dueDate} />
           </div>
+          {kind === "quote" ? (
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="paymentTermDays">Prazo para pagar depois da aprovação</Label>
+              <select id="paymentTermDays" name="paymentTermDays" defaultValue={String(draft.paymentTermDays ?? 7)} className={selectClass}>
+                <option value="0">No mesmo dia</option>
+                {[3, 7, 10, 15, 30].map((days) => (
+                  <option key={days} value={days}>
+                    {days} dias
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">Quando o cliente aprovar, criamos a cobrança com Pix automaticamente.</p>
+            </div>
+          ) : null}
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="projectId">
               Projeto <span className="font-normal text-muted-foreground">(opcional)</span>
@@ -199,16 +246,9 @@ export function InvoiceEditor({ draft, clients, projects }: { draft: InvoiceDraf
 
         <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-xs">
           <Label htmlFor="notes">
-            Observações para o cliente <span className="font-normal text-muted-foreground">(opcional)</span>
+            {copy.notesLabel} <span className="font-normal text-muted-foreground">(opcional)</span>
           </Label>
-          <Textarea
-            id="notes"
-            name="notes"
-            rows={3}
-            defaultValue={draft.notes}
-            maxLength={2000}
-            placeholder="Ex.: Pagamento via Pix. Após a confirmação, envio os arquivos finais."
-          />
+          <Textarea id="notes" name="notes" rows={3} defaultValue={draft.notes} maxLength={2000} placeholder={copy.notesPlaceholder} />
         </section>
       </div>
 
@@ -268,7 +308,7 @@ export function InvoiceEditor({ draft, clients, projects }: { draft: InvoiceDraf
             </SubmitButton>
           )}
           <Button asChild variant="ghost">
-            <Link href={draft.id ? `${APP_PATH}/cobrancas/${draft.id}` : `${APP_PATH}/cobrancas`}>Cancelar</Link>
+            <Link href={draft.id ? `${APP_PATH}/${copy.base}/${draft.id}` : `${APP_PATH}/${copy.base}`}>Cancelar</Link>
           </Button>
         </div>
       </aside>

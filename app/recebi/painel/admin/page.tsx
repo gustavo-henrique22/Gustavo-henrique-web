@@ -1,6 +1,6 @@
-import { Search } from "lucide-react";
+import { CircleCheck, CircleDashed, Search } from "lucide-react";
 import type { Metadata } from "next";
-import { desc, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,15 @@ import { AdminResetLink } from "@/components/recebi/admin-reset-link";
 import { PageHeader } from "@/components/recebi/page-header";
 import { StatCard } from "@/components/recebi/stat-card";
 import { getDb } from "@/db";
-import { invoices, transactions, users } from "@/db/schema";
+import { invoices, payments, transactions, users } from "@/db/schema";
 import { setUserPlan } from "@/lib/recebi/actions/admin";
 import { hasPro, requireAdmin } from "@/lib/recebi/auth";
 import { APP_PATH, PRO_PRICE_CENTS } from "@/lib/recebi/config";
 import { addDays, formatDate, todayISO } from "@/lib/recebi/dates";
-import { emailEnabled } from "@/lib/recebi/email";
+import { billingEnabled } from "@/lib/recebi/billing";
+import { emailEnabled, readEnv } from "@/lib/recebi/email";
+import { filesEnabled } from "@/lib/recebi/files";
+import { googleEnabled } from "@/lib/recebi/google";
 import { formatMoney } from "@/lib/recebi/money";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -26,11 +29,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const since = addDays(todayISO(), -30);
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, [counts], [invoiceCount], [transactionCount]] = await Promise.all([
+  const [list, [counts], [invoiceCount], [transactionCount], recentPayments, [revenue]] = await Promise.all([
     db
       .select()
       .from(users)
-      .where(q ? or(like(users.email, term), like(users.name, term)) : undefined)
+      .where(q ? and(eq(users.isDemo, false), or(like(users.email, term), like(users.name, term))) : eq(users.isDemo, false))
       .orderBy(desc(users.createdAt))
       .limit(100),
     db
@@ -38,26 +41,110 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         total: sql<number>`count(*)`,
         pro: sql<number>`coalesce(sum(case when ${users.plan} = 'pro' and (${users.planExpiresAt} is null or ${users.planExpiresAt} >= ${todayISO()}) then 1 else 0 end), 0)`,
         recent: sql<number>`coalesce(sum(case when ${users.createdAt} >= ${since} then 1 else 0 end), 0)`,
+        demos: sql<number>`coalesce(sum(case when ${users.isDemo} then 1 else 0 end), 0)`,
       })
       .from(users),
     db.select({ count: sql<number>`count(*)` }).from(invoices),
     db.select({ count: sql<number>`count(*)` }).from(transactions),
+    db
+      .select({ payment: payments, email: users.email })
+      .from(payments)
+      .innerJoin(users, eq(users.id, payments.userId))
+      .orderBy(desc(payments.createdAt))
+      .limit(10),
+    db
+      .select({
+        month: sql<number>`coalesce(sum(case when ${payments.createdAt} >= ${since} then ${payments.amountCents} else 0 end), 0)`,
+        total: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
+      })
+      .from(payments),
   ]);
+
+  const integrations = [
+    { name: "Envio de e-mails (Resend)", on: emailEnabled(), how: "RESEND_API_KEY e RECEBI_EMAIL_FROM" },
+    {
+      name: "Venda automática do Pro (Mercado Pago)",
+      on: billingEnabled(),
+      how: "MERCADOPAGO_ACCESS_TOKEN (e MERCADOPAGO_WEBHOOK_SECRET)",
+    },
+    { name: "Login com Google", on: googleEnabled(), how: "GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET" },
+    { name: "Comprovantes e logos (R2)", on: filesEnabled(), how: "binding FILES em .openai/hosting.json" },
+    {
+      name: "Lembretes diários de cobrança",
+      on: !!readEnv("RECEBI_CRON_SECRET") && emailEnabled(),
+      how: "RECEBI_CRON_SECRET + agendador chamando /recebi/api/lembretes",
+    },
+  ];
 
   return (
     <>
       <PageHeader title="Administração" description="Usuários, planos e suporte do Recebi." />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Usuários" value={String(counts.total)} hint={`${counts.recent} nos últimos 30 dias`} />
+        <StatCard
+          label="Usuários"
+          value={String(counts.total - counts.demos)}
+          hint={`${counts.recent - counts.demos} nos últimos 30 dias · ${counts.demos} demonstrações ativas`}
+        />
         <StatCard
           label="Assinantes Pro"
           value={String(counts.pro)}
           tone="brand"
           hint={`Receita mensal estimada: ${formatMoney(counts.pro * PRO_PRICE_CENTS)}`}
         />
-        <StatCard label="Cobranças criadas" value={String(invoiceCount.count)} />
-        <StatCard label="Lançamentos" value={String(transactionCount.count)} />
+        <StatCard
+          label="Vendas online (30 dias)"
+          value={formatMoney(revenue.month)}
+          tone="income"
+          hint={`Total pelo Mercado Pago: ${formatMoney(revenue.total)}`}
+        />
+        <StatCard
+          label="Cobranças e lançamentos"
+          value={`${invoiceCount.count} · ${transactionCount.count}`}
+          hint="Criados por todos os usuários"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Integrações</h2>
+          <p className="mb-3 text-xs text-muted-foreground">Ative cada uma configurando as variáveis indicadas na hospedagem do site.</p>
+          <ul className="grid gap-2 text-sm">
+            {integrations.map((item) => (
+              <li key={item.name} className="flex items-start gap-2">
+                {item.on ? (
+                  <CircleCheck className="mt-0.5 size-4 shrink-0 text-income" />
+                ) : (
+                  <CircleDashed className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                )}
+                <span>
+                  <span className="font-medium">{item.name}</span>
+                  {!item.on ? <span className="block text-xs text-muted-foreground">Desativado · {item.how}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="mb-3 font-bold">Últimos pagamentos do Pro</h2>
+          {recentPayments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum pagamento online ainda.</p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {recentPayments.map(({ payment, email }) => (
+                <li key={payment.id} className="flex items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{email}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {formatDate(payment.createdAt.slice(0, 10))} · {payment.months === 12 ? "anual" : `${payment.months} mês`}
+                    </span>
+                  </span>
+                  <span className="font-semibold text-income tabular">{formatMoney(payment.amountCents)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       {!emailEnabled() ? (

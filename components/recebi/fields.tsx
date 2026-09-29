@@ -1,4 +1,5 @@
 // Campos de formulário reaproveitados nos diálogos de cadastro/edição.
+import { Paperclip } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +23,7 @@ export function FormField({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("grid gap-2", className)}>
+    <div className={cn("grid content-start gap-2", className)}>
       <Label htmlFor={id}>{label}</Label>
       {children}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
@@ -66,12 +67,15 @@ export function TransactionFields({
   projects,
   transaction,
   defaultClientId,
+  attachments = "hidden",
 }: {
   type: "receita" | "despesa";
   clients: Pick<Client, "id" | "name">[];
   projects: ProjectOption[];
   transaction?: Transaction;
   defaultClientId?: string;
+  /** "enabled": pode anexar; "locked": mostra o recurso do Pro; "hidden": sem armazenamento. */
+  attachments?: "enabled" | "locked" | "hidden";
 }) {
   const categories = categoriesFor(type);
   const isEdit = !!transaction;
@@ -161,6 +165,38 @@ export function TransactionFields({
             ))}
           </Select>
         </FormField>
+      ) : null}
+      {attachments === "enabled" ? (
+        <FormField
+          id="attachment"
+          label={
+            <>
+              Comprovante <span className="font-normal text-muted-foreground">(opcional)</span>
+            </>
+          }
+          hint={
+            transaction?.attachmentName ? (
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="removeAttachment" className="size-3.5" /> Remover o arquivo atual ({transaction.attachmentName}
+                )
+              </label>
+            ) : (
+              "Foto ou PDF de até 5 MB: nota fiscal, recibo, comprovante do Pix…"
+            )
+          }
+        >
+          <Input
+            id="attachment"
+            name="attachment"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+            className="cursor-pointer"
+          />
+        </FormField>
+      ) : attachments === "locked" ? (
+        <p className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          <Paperclip className="size-3.5" /> Anexar comprovantes é um recurso do plano Pro.
+        </p>
       ) : null}
     </>
   );

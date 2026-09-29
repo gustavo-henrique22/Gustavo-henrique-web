@@ -29,3 +29,36 @@ export function InvoiceStatusBadge({ status, dueDate, className }: { status: Inv
     </Badge>
   );
 }
+
+export type QuoteStatus = "rascunho" | "enviado" | "aprovado" | "recusado";
+
+export function quoteDisplayStatus(status: QuoteStatus, validUntil: string) {
+  if (status === "enviado" && validUntil < todayISO()) return "expirado" as const;
+  return status;
+}
+
+const QUOTE_LABELS = {
+  rascunho: "Rascunho",
+  enviado: "Aguardando resposta",
+  aprovado: "Aprovado",
+  recusado: "Recusado",
+  expirado: "Expirado",
+} as const;
+
+export function QuoteStatusBadge({ status, validUntil, className }: { status: QuoteStatus; validUntil: string; className?: string }) {
+  const display = quoteDisplayStatus(status, validUntil);
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        display === "aprovado" && "border-income/30 bg-income/10 text-income",
+        display === "enviado" && "border-warning/30 bg-warning/10 text-warning",
+        display === "recusado" && "border-destructive/30 bg-destructive/10 text-destructive",
+        (display === "expirado" || display === "rascunho") && "text-muted-foreground",
+        className,
+      )}
+    >
+      {QUOTE_LABELS[display]}
+    </Badge>
+  );
+}

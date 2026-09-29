@@ -1,19 +1,27 @@
-import { AppSidebar, MobileNav } from "@/components/recebi/app-nav";
+import { AppSidebar, DesktopTopbar, MobileNav } from "@/components/recebi/app-nav";
+import { CommandMenuProvider } from "@/components/recebi/command-menu";
+import { DemoBanner } from "@/components/recebi/demo-banner";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
+import { listClients } from "@/lib/recebi/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const navUser = { name: user.name, email: user.email, isAdmin: user.isAdmin, isPro: hasPro(user) };
+  const clients = await listClients(user.id);
+  const navUser = { name: user.name, email: user.email, isAdmin: user.isAdmin, isPro: hasPro(user), isDemo: user.isDemo };
 
   return (
-    <div className="flex min-h-dvh">
-      <AppSidebar user={navUser} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileNav user={navUser} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">{children}</main>
+    <CommandMenuProvider clients={clients.map((c) => ({ id: c.id, name: c.name }))} isAdmin={user.isAdmin}>
+      <div className="flex min-h-dvh">
+        <AppSidebar user={navUser} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {user.isDemo ? <DemoBanner /> : null}
+          <MobileNav user={navUser} />
+          <DesktopTopbar />
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </CommandMenuProvider>
   );
 }

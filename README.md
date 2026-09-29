@@ -7,32 +7,54 @@ Este repositório tem duas partes:
 
 ## O que o Recebi faz
 
-- Cadastro, login, redefinição de senha e bloqueio após muitas tentativas erradas
-- Painel do mês: recebido, gasto, lucro, imposto estimado, sobra livre, meta, a receber/a pagar e próximos vencimentos
-- Lançamentos de receitas e despesas (com repetição mensal), clientes e projetos
-- Cobranças com link público, QR Code e Pix copia e cola; ao marcar como paga, a receita entra sozinha nos lançamentos
-- Relatórios anuais, acompanhamento do limite do MEI e exportação para Excel (CSV)
-- Planos Grátis e Pro, e uma área de administração em `/recebi/painel/admin`
+- **Contas:** cadastro, login com e-mail ou Google, redefinição de senha e bloqueio após tentativas erradas
+- **Demonstração:** botão "Ver demonstração" cria uma conta com dados fictícios (apagada em 24 horas)
+- **Painel do mês:** recebido, gasto, lucro, imposto estimado, sobra livre, meta, comparação com o mês anterior e próximos vencimentos
+- **Lançamentos** de receitas e despesas (com repetição mensal e comprovante anexado), **clientes** e **projetos**
+- **Orçamentos:** link público onde o cliente aprova ou recusa; ao aprovar, a cobrança com Pix é criada sozinha
+- **Cobranças:** link público com QR Code e Pix copia e cola; ao marcar como paga, a receita entra nos lançamentos
+- **Recibos:** página pronta para imprimir, com valor por extenso
+- **Relatórios** anuais, limite do MEI e exportação para Excel (CSV)
+- **Calculadora de preço** no painel e pública em `/recebi/calculadora`
+- **Planos** Grátis e Pro (mensal ou anual), com venda automática pelo Mercado Pago
+- **E-mails automáticos:** boas-vindas, envio de orçamentos e cobranças, recibo, lembretes de vencimento e avisos
+- **App no celular** (PWA), tema claro/escuro e busca rápida com `Ctrl K`
+- **Administração** em `/recebi/painel/admin`: usuários, planos, pagamentos e status das integrações
 
 ## Onde ficam as coisas
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `app/recebi/` | Páginas (landing, login, painel, cobrança pública) |
+| `app/recebi/` | Páginas (landing, login, painel, páginas públicas `c/` e `o/`, rotas `api/`) |
 | `components/recebi/` | Componentes de interface do Recebi |
 | `lib/recebi/` | Regras de negócio, consultas e server actions (`lib/recebi/actions/`) |
-| `lib/recebi/config.ts` | Nome, preço do Pro, limites do plano Grátis e WhatsApp de suporte |
-| `db/schema.ts` e `drizzle/` | Tabelas do banco D1 e a migração gerada |
+| `lib/recebi/config.ts` | Nome, preços do Pro, limites do plano Grátis e WhatsApp de suporte |
+| `db/schema.ts` e `drizzle/` | Tabelas do banco D1 e as migrações geradas |
+| `public/recebi/` | Ícones, manifesto do app, service worker e imagem de compartilhamento |
 
-## Administração e plano Pro
+## Configuração (variáveis de ambiente)
 
-- A **primeira conta criada** vira administradora. Para escolher os administradores
-  explicitamente, defina a variável `RECEBI_ADMIN_EMAILS` (e-mails separados por vírgula).
-- O botão "Assinar pelo WhatsApp" abre uma conversa com o número em `SUPPORT_WHATSAPP`.
-  Depois de receber o Pix, libere o Pro para o cliente no painel de administração (+1 mês ou +1 ano).
-- Redefinição de senha por e-mail funciona quando `RESEND_API_KEY` e `RECEBI_EMAIL_FROM`
-  estão configuradas ([Resend](https://resend.com)). Sem elas, o administrador gera o link
-  de nova senha no painel e envia manualmente.
+Tudo funciona sem nenhuma variável. Cada integração abaixo liga sozinha quando as variáveis existem,
+e o painel de administração mostra quais estão ativas.
+
+| Variável | Para quê |
+| --- | --- |
+| `RECEBI_ADMIN_EMAILS` | E-mails de administradores, separados por vírgula. Sem ela, a **primeira conta criada** vira administradora. |
+| `RECEBI_SITE_URL` | Endereço público do site (ex.: `https://meusite.com`), usado nos links dos e-mails. |
+| `RESEND_API_KEY` e `RECEBI_EMAIL_FROM` | Envio de e-mails pelo [Resend](https://resend.com). `RECEBI_EMAIL_FROM` no formato `Recebi <ola@seudominio.com>`. |
+| `MERCADOPAGO_ACCESS_TOKEN` | Venda automática do Pro (Pix, cartão e boleto) pelo Checkout Pro do Mercado Pago. |
+| `MERCADOPAGO_WEBHOOK_SECRET` | (Opcional) Valida a assinatura das notificações do Mercado Pago. |
+| `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` | Login com Google. No Google Cloud, cadastre o retorno `https://SEU-SITE/recebi/api/google/callback`. |
+| `RECEBI_CRON_SECRET` | Libera a rota diária de lembretes (veja abaixo). |
+
+**Mercado Pago:** o endereço de notificação (`/recebi/api/mercadopago`) é enviado automaticamente em cada
+pagamento. O Pro também é liberado quando a pessoa volta do checkout, conferindo o pagamento na API.
+
+**Lembretes de cobrança:** chame uma vez por dia (por exemplo, com o [cron-job.org](https://cron-job.org))
+`https://SEU-SITE/recebi/api/lembretes?chave=VALOR_DE_RECEBI_CRON_SECRET`. Os clientes de usuários Pro
+recebem e-mail 3 dias antes, no dia e 3 dias depois do vencimento.
+
+**Arquivos (comprovantes e logos):** usam o binding R2 `FILES` declarado em `.openai/hosting.json`.
 
 ## Rodando localmente
 
@@ -42,6 +64,7 @@ npm run db:migrate:local  # cria as tabelas no banco D1 local
 npm run dev               # abre em http://localhost:5173/recebi
 ```
 
+Para testar integrações localmente, crie um arquivo `.dev.vars` (ignorado pelo Git) com as variáveis.
 Depois de alterar `db/schema.ts`, gere uma nova migração com `npm run db:generate`.
 Em produção, a plataforma aplica as migrações de `drizzle/` no banco D1 declarado em `.openai/hosting.json`.
 

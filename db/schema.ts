@@ -30,9 +30,17 @@ export const users = sqliteTable(
       .default("free"),
     planExpiresAt: text("plan_expires_at"),
     isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+    /** Conta de demonstração criada pelo botão "Ver demonstração"; é apagada depois de 24 horas. */
+    isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
+    /** Identificador da conta Google, quando a pessoa entra com o Google. */
+    googleSub: text("google_sub"),
+    /** Enviar lembretes automáticos por e-mail aos clientes com cobranças em aberto. */
+    autoReminders: integer("auto_reminders", { mode: "boolean" }).notNull().default(true),
+    /** Chave do arquivo de logo no armazenamento (R2), usada nas cobranças do plano Pro. */
+    logoKey: text("logo_key"),
     createdAt: createdAt(),
   },
-  (table) => [uniqueIndex("users_email_unique").on(table.email)],
+  (table) => [uniqueIndex("users_email_unique").on(table.email), uniqueIndex("users_google_sub_unique").on(table.googleSub)],
 );
 
 export const sessions = sqliteTable(
@@ -169,9 +177,94 @@ export const transactions = sqliteTable(
     clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
     invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    /** Comprovante anexado (arquivo no R2). */
+    attachmentKey: text("attachment_key"),
+    attachmentName: text("attachment_name"),
+    attachmentType: text("attachment_type"),
+    attachmentSize: integer("attachment_size"),
     createdAt: createdAt(),
   },
   (table) => [index("transactions_user_date_idx").on(table.userId, table.date), index("transactions_invoice_idx").on(table.invoiceId)],
+);
+
+/** Orçamentos: o cliente aprova pelo link e o orçamento vira cobrança. */
+export const quotes = sqliteTable(
+  "quotes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    number: integer("number").notNull(),
+    publicToken: text("public_token").notNull(),
+    status: text("status", { enum: ["rascunho", "enviado", "aprovado", "recusado"] })
+      .notNull()
+      .default("rascunho"),
+    issueDate: text("issue_date").notNull(),
+    validUntil: text("valid_until").notNull(),
+    /** Prazo de pagamento, em dias, da cobrança criada quando o cliente aprovar. */
+    paymentTermDays: integer("payment_term_days").notNull().default(7),
+    discountCents: integer("discount_cents").notNull().default(0),
+    totalCents: integer("total_cents").notNull().default(0),
+    notes: text("notes").notNull().default(""),
+    decidedAt: text("decided_at"),
+    decisionNote: text("decision_note").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("quotes_user_idx").on(table.userId),
+    uniqueIndex("quotes_token_unique").on(table.publicToken),
+    uniqueIndex("quotes_user_number_unique").on(table.userId, table.number),
+  ],
+);
+
+export const quoteItems = sqliteTable(
+  "quote_items",
+  {
+    id: text("id").primaryKey(),
+    quoteId: text("quote_id")
+      .notNull()
+      .references(() => quotes.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: real("quantity").notNull().default(1),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [index("quote_items_quote_idx").on(table.quoteId)],
+);
+
+/** Lembretes de cobrança já enviados, para não mandar o mesmo lembrete duas vezes. */
+export const invoiceReminders = sqliteTable(
+  "invoice_reminders",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["antes", "vencimento", "atraso"] }).notNull(),
+    sentAt: createdAt(),
+  },
+  (table) => [uniqueIndex("invoice_reminders_unique").on(table.invoiceId, table.kind)],
+);
+
+/** Pagamentos do plano Pro recebidos pelo Mercado Pago. */
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("mercadopago"),
+    status: text("status").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    months: integer("months").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("payments_user_idx").on(table.userId)],
 );
 
 export type User = typeof users.$inferSelect;
@@ -180,3 +273,6 @@ export type Project = typeof projects.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type Quote = typeof quotes.$inferSelect;
+export type QuoteItem = typeof quoteItems.$inferSelect;
+export type Payment = typeof payments.$inferSelect;

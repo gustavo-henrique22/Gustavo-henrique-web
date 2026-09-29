@@ -7,12 +7,16 @@ export const APP_PATH = `${BASE_PATH}/painel`;
 export const SUPPORT_WHATSAPP = "5511989735670";
 
 export const PRO_PRICE_CENTS = 1990;
+/** Plano anual: 12 meses pelo preço de 10. */
+export const PRO_YEARLY_PRICE_CENTS = 19900;
 
 export const FREE_LIMITS = {
   /** Clientes ativos (não arquivados). */
   clients: 5,
   /** Cobranças criadas por mês. */
   invoicesPerMonth: 5,
+  /** Orçamentos criados por mês. */
+  quotesPerMonth: 5,
 } as const;
 
 export const SESSION_COOKIE = "recebi_session";

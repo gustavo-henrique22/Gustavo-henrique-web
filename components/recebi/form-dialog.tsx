@@ -26,11 +26,21 @@ type Props = {
   submitLabel?: string;
   children: React.ReactNode;
   wide?: boolean;
+  /** Abre ao carregar a página (ex.: link "?novo=receita" da busca rápida). */
+  defaultOpen?: boolean;
 };
 
 /** Diálogo com formulário que chama uma server action e fecha quando dá certo. */
-export function FormDialog({ trigger, title, description, action, submitLabel = "Salvar", children, wide }: Props) {
-  const [open, setOpen] = useState(false);
+export function FormDialog({ trigger, title, description, action, submitLabel = "Salvar", children, wide, defaultOpen }: Props) {
+  const [open, setOpen] = useState(!!defaultOpen);
+
+  useEffect(() => {
+    if (!defaultOpen) return;
+    // Tira o "?novo=..." da barra de endereço para o diálogo não reabrir ao recarregar.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("novo");
+    window.history.replaceState(window.history.state, "", url);
+  }, [defaultOpen]);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>

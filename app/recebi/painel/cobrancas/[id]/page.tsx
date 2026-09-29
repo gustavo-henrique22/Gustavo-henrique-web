@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, CheckCircle2, Copy, Pencil, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Copy, FileCheck2, Pencil, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,14 +8,23 @@ import { ActionButton } from "@/components/recebi/action-button";
 import { ConfirmAction } from "@/components/recebi/confirm-action";
 import { FormField, Select } from "@/components/recebi/fields";
 import { FormDialog } from "@/components/recebi/form-dialog";
-import { InvoiceDocument } from "@/components/recebi/invoice-document";
+import { InvoiceDocument } from "@/components/recebi/document-view";
 import { invoiceDisplayStatus } from "@/components/recebi/invoice-status";
-import { ShareInvoice } from "@/components/recebi/share-invoice";
-import { deleteInvoice, duplicateInvoice, markInvoicePaid, setInvoiceStatus, undoInvoicePayment } from "@/lib/recebi/actions/invoices";
+import { ShareLink } from "@/components/recebi/share-link";
+import {
+  deleteInvoice,
+  duplicateInvoice,
+  emailInvoice,
+  markInvoicePaid,
+  setInvoiceStatus,
+  undoInvoicePayment,
+} from "@/lib/recebi/actions/invoices";
 import { requireUser } from "@/lib/recebi/auth";
 import { INCOME_CATEGORIES } from "@/lib/recebi/categories";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { getInvoice } from "@/lib/recebi/data";
+import { emailEnabled } from "@/lib/recebi/email";
+import { logoUrlFor } from "@/lib/recebi/files";
 import { formatDate, todayISO } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
 import { siteOrigin } from "@/lib/recebi/origin";
@@ -51,6 +60,7 @@ export default async function InvoicePage({
     ? `mailto:${client.email}?subject=${encodeURIComponent(`Cobrança #${number} — ${ownerName}`)}&body=${encodeURIComponent(message)}`
     : null;
   const display = invoiceDisplayStatus(invoice.status, invoice.dueDate);
+  const canEmail = emailEnabled() && !!client?.email;
 
   return (
     <>
@@ -62,7 +72,7 @@ export default async function InvoicePage({
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <InvoiceDocument invoice={invoice} items={items} client={client} owner={user} className="self-start" />
+        <InvoiceDocument invoice={invoice} items={items} client={client} owner={user} logoUrl={logoUrlFor(user)} className="self-start" />
 
         <aside className="grid content-start gap-4">
           {invoice.status === "rascunho" ? (
@@ -78,10 +88,12 @@ export default async function InvoicePage({
           ) : null}
 
           {invoice.status === "enviada" || invoice.status === "paga" ? (
-            <ShareInvoice
+            <ShareLink
               link={link}
+              description="O cliente abre o link, vê os detalhes e paga com Pix. Não precisa de cadastro."
               whatsappHref={whatsappHref}
               mailHref={mailHref}
+              emailAction={canEmail && invoice.status === "enviada" ? { action: emailInvoice, fields: { id: invoice.id } } : null}
               highlight={enviar === "1" && invoice.status === "enviada"}
             />
           ) : null}
@@ -114,6 +126,12 @@ export default async function InvoicePage({
                     ))}
                   </Select>
                 </FormField>
+                {canEmail ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="sendReceipt" defaultChecked className="size-4 accent-[var(--primary)]" />
+                    Enviar o recibo por e-mail para {client?.email}
+                  </label>
+                ) : null}
               </FormDialog>
             </section>
           ) : null}
@@ -124,6 +142,11 @@ export default async function InvoicePage({
                 <CheckCircle2 className="size-5" /> Paga em {formatDate(invoice.paidAt)}
               </h2>
               <p className="mt-1 text-sm">A receita de {formatMoney(invoice.totalCents)} já está nos seus lançamentos.</p>
+              <Button asChild size="sm" className="mt-3 mr-2">
+                <a href={`${BASE_PATH}/c/${invoice.publicToken}/recibo`} target="_blank" rel="noreferrer">
+                  <FileCheck2 /> Ver recibo
+                </a>
+              </Button>
               <ConfirmAction
                 action={undoInvoicePayment}
                 fields={{ id: invoice.id }}

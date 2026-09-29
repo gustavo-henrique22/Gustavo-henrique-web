@@ -106,3 +106,22 @@ test("hashes and verifies passwords", async () => {
   assert.equal(await crypto.verifyPassword("outra-senha", hash), false);
   assert.notEqual(await crypto.hashPassword("senha-segura-123"), hash);
 });
+
+const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
+
+test("writes money amounts in words for receipts", () => {
+  assert.equal(extenso.moneyToWords(100), "um real");
+  assert.equal(extenso.moneyToWords(150), "um real e cinquenta centavos");
+  assert.equal(extenso.moneyToWords(1), "um centavo");
+  assert.equal(extenso.moneyToWords(10000), "cem reais");
+  assert.equal(extenso.moneyToWords(12345), "cento e vinte e três reais e quarenta e cinco centavos");
+  assert.equal(extenso.moneyToWords(100000), "mil reais");
+  assert.equal(extenso.moneyToWords(120000), "mil e duzentos reais");
+  assert.equal(extenso.moneyToWords(125050), "mil duzentos e cinquenta reais e cinquenta centavos");
+  assert.equal(extenso.moneyToWords(100500), "mil e cinco reais");
+  assert.equal(extenso.moneyToWords(170000), "mil e setecentos reais");
+  assert.equal(extenso.moneyToWords(2140000), "vinte e um mil e quatrocentos reais");
+  assert.equal(extenso.moneyToWords(100000000), "um milhão de reais");
+  assert.equal(extenso.moneyToWords(250000000), "dois milhões e quinhentos mil reais");
+  assert.equal(extenso.moneyToWords(100010000), "um milhão e cem reais");
+});

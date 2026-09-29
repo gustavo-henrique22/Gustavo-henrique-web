@@ -2,10 +2,15 @@
 // pelo usuário logado; nunca chame estas funções com um id vindo do formulário.
 import { and, asc, desc, eq, gte, inArray, like, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clients, invoiceItems, invoices, projects, transactions, users } from "@/db/schema";
+import { clients, invoiceItems, invoices, projects, quoteItems, quotes, transactions, users } from "@/db/schema";
 import { addMonths, monthBounds, todayISO } from "./dates";
 
 const sumAmount = sql<number>`coalesce(sum(${transactions.amountCents}), 0)`;
+
+export async function getUserById(id: string) {
+  const [row] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
+  return row ?? null;
+}
 
 export async function listClients(userId: string, { includeArchived = false } = {}) {
   return getDb()
@@ -367,5 +372,77 @@ export async function getPublicInvoice(token: string) {
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, row.invoice.id)).orderBy(asc(invoiceItems.position));
+  return { ...row, items };
+}
+
+// ---------- Orçamentos ----------
+
+export async function countQuotesInMonth(userId: string, month: string): Promise<number> {
+  const [row] = await getDb()
+    .select({ count: sql<number>`count(*)` })
+    .from(quotes)
+    .where(and(eq(quotes.userId, userId), like(quotes.createdAt, `${month}%`)));
+  return row.count;
+}
+
+export async function listQuotes(userId: string, status?: string) {
+  const today = todayISO();
+  const conditions = [eq(quotes.userId, userId)];
+  if (status === "expirado") {
+    conditions.push(eq(quotes.status, "enviado"), lt(quotes.validUntil, today));
+  } else if (status === "enviado") {
+    conditions.push(eq(quotes.status, "enviado"), gte(quotes.validUntil, today));
+  } else if (status === "rascunho" || status === "aprovado" || status === "recusado") {
+    conditions.push(eq(quotes.status, status));
+  }
+  return getDb()
+    .select({ quote: quotes, clientName: clients.name })
+    .from(quotes)
+    .leftJoin(clients, eq(clients.id, quotes.clientId))
+    .where(and(...conditions))
+    .orderBy(desc(quotes.number));
+}
+
+export async function quoteStats(userId: string) {
+  const today = todayISO();
+  const [row] = await getDb()
+    .select({
+      waiting: sql<number>`coalesce(sum(case when ${quotes.status} = 'enviado' and ${quotes.validUntil} >= ${today} then ${quotes.totalCents} else 0 end), 0)`,
+      approvedMonth: sql<number>`coalesce(sum(case when ${quotes.status} = 'aprovado' and substr(${quotes.decidedAt}, 1, 7) = ${today.slice(0, 7)} then ${quotes.totalCents} else 0 end), 0)`,
+      approved: sql<number>`coalesce(sum(case when ${quotes.status} = 'aprovado' then 1 else 0 end), 0)`,
+      decided: sql<number>`coalesce(sum(case when ${quotes.status} in ('aprovado', 'recusado') then 1 else 0 end), 0)`,
+    })
+    .from(quotes)
+    .where(eq(quotes.userId, userId));
+  return { ...row, approvalRate: row.decided > 0 ? Math.round((row.approved / row.decided) * 100) : null };
+}
+
+export async function getQuote(userId: string, id: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({ quote: quotes, client: clients, invoiceToken: invoices.publicToken, invoiceNumber: invoices.number })
+    .from(quotes)
+    .leftJoin(clients, eq(clients.id, quotes.clientId))
+    .leftJoin(invoices, eq(invoices.id, quotes.invoiceId))
+    .where(and(eq(quotes.userId, userId), eq(quotes.id, id)))
+    .limit(1);
+  if (!row) return null;
+  const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, id)).orderBy(asc(quoteItems.position));
+  return { ...row, items };
+}
+
+/** Orçamento público (link enviado ao cliente). Não mostra rascunhos. */
+export async function getPublicQuote(token: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({ quote: quotes, client: clients, owner: users, invoiceToken: invoices.publicToken })
+    .from(quotes)
+    .innerJoin(users, eq(users.id, quotes.userId))
+    .leftJoin(clients, eq(clients.id, quotes.clientId))
+    .leftJoin(invoices, eq(invoices.id, quotes.invoiceId))
+    .where(and(eq(quotes.publicToken, token), ne(quotes.status, "rascunho")))
+    .limit(1);
+  if (!row) return null;
+  const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, row.quote.id)).orderBy(asc(quoteItems.position));
   return { ...row, items };
 }

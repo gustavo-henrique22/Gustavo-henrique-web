@@ -1,8 +1,9 @@
-import { Ban, CheckCircle2 } from "lucide-react";
+import { Ban, CheckCircle2, FileCheck2, PartyPopper } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { InvoiceDocument } from "@/components/recebi/invoice-document";
+import { Button } from "@/components/ui/button";
+import { InvoiceDocument } from "@/components/recebi/document-view";
 import { Logo } from "@/components/recebi/logo";
 import { PixBox } from "@/components/recebi/pix-box";
 import { PrintButton } from "@/components/recebi/print-button";
@@ -10,6 +11,7 @@ import { hasPro } from "@/lib/recebi/auth";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { getPublicInvoice } from "@/lib/recebi/data";
 import { formatDate } from "@/lib/recebi/dates";
+import { logoUrlFor } from "@/lib/recebi/files";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +26,15 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   };
 }
 
-export default async function PublicInvoicePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function PublicInvoicePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ aprovado?: string }>;
+}) {
   const { token } = await params;
+  const { aprovado } = await searchParams;
   const data = await getPublicInvoice(token);
   if (!data) notFound();
   const { invoice, items, client, owner } = data;
@@ -40,10 +49,25 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
         <PrintButton />
       </div>
 
+      {aprovado === "1" && invoice.status === "enviada" ? (
+        <div className="no-print mb-4 rounded-xl border-2 border-income/40 bg-income/10 px-4 py-4">
+          <p className="flex items-center gap-2 font-bold text-income">
+            <PartyPopper className="size-5" /> Orçamento aprovado! Obrigado pela confiança.
+          </p>
+          <p className="mt-1 text-sm">{ownerName} já foi avisado. Abaixo está a cobrança para pagamento com Pix.</p>
+        </div>
+      ) : null}
       {invoice.status === "paga" ? (
-        <p className="mb-4 flex items-center gap-2 rounded-xl border border-income/30 bg-income/10 px-4 py-3 text-sm font-semibold text-income">
-          <CheckCircle2 className="size-5" /> Pagamento confirmado em {formatDate(invoice.paidAt)}. Obrigado!
-        </p>
+        <div className="no-print mb-4 flex flex-col gap-3 rounded-xl border border-income/30 bg-income/10 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2 font-semibold text-income">
+            <CheckCircle2 className="size-5" /> Pagamento confirmado em {formatDate(invoice.paidAt)}. Obrigado!
+          </p>
+          <Button asChild size="sm">
+            <Link href={`${BASE_PATH}/c/${token}/recibo`}>
+              <FileCheck2 /> Ver recibo
+            </Link>
+          </Button>
+        </div>
       ) : null}
       {invoice.status === "cancelada" ? (
         <p className="mb-4 flex items-center gap-2 rounded-xl border bg-muted px-4 py-3 text-sm font-semibold">
@@ -51,7 +75,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
         </p>
       ) : null}
 
-      <InvoiceDocument invoice={invoice} items={items} client={client} owner={owner} className="print-flat" />
+      <InvoiceDocument invoice={invoice} items={items} client={client} owner={owner} logoUrl={logoUrlFor(owner)} className="print-flat" />
 
       {invoice.status === "enviada" ? (
         <div className="mt-6">
@@ -73,7 +97,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
       ) : null}
 
       {!hasPro(owner) ? (
-        <p className="mt-10 text-center text-xs text-muted-foreground">
+        <p className="no-print mt-10 text-center text-xs text-muted-foreground">
           <Link href={BASE_PATH} className="inline-flex items-center gap-1.5 hover:text-foreground">
             Cobrança criada com <Logo className="text-xs" markClassName="size-4" /> — controle financeiro para freelancers
           </Link>

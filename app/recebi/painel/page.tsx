@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   CircleDollarSign,
+  FileSignature,
   FileText,
   Landmark,
   PiggyBank,
@@ -35,7 +36,7 @@ import {
   openReceivables,
   paidIncomeBetween,
 } from "@/lib/recebi/data";
-import { currentMonth, formatDateShort, isValidMonth, monthBounds, monthLabel, todayISO } from "@/lib/recebi/dates";
+import { currentMonth, formatDateShort, isValidMonth, monthBounds, monthLabel, monthShortLabel, todayISO } from "@/lib/recebi/dates";
 import { formatMoney, formatPercentBp } from "@/lib/recebi/money";
 import { cn } from "@/lib/utils";
 
@@ -70,12 +71,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const goalPercent = user.monthlyGoalCents > 0 ? Math.round((totals.incomePaid / user.monthlyGoalCents) * 100) : null;
   const limitPercent = user.annualLimitCents > 0 ? Math.round((yearIncome / user.annualLimitCents) * 100) : null;
   const firstName = user.name.trim().split(/\s+/)[0];
+  const previous = series[series.length - 2];
+  const prevLabel = `vs ${monthShortLabel(previous.month).split("/")[0]}`;
+  const change = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()),
+  );
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const monthIsPast = monthBounds(month).end < today;
 
   return (
     <>
       <PageHeader
-        title={`Olá, ${firstName}`}
+        title={`${greeting}, ${firstName}`}
         description={`Resumo de ${monthLabel(month)}`}
         actions={
           <>
@@ -87,6 +95,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="mb-6 flex flex-wrap gap-2">
         <NewTransactionButton type="receita" clients={clientsList} projects={projects} label="Nova receita" />
         <NewTransactionButton type="despesa" clients={clientsList} projects={projects} label="Nova despesa" />
+        <Button asChild variant="outline">
+          <Link href={`${APP_PATH}/orcamentos/novo`}>
+            <FileSignature /> Novo orçamento
+          </Link>
+        </Button>
         <Button asChild variant="outline">
           <Link href={`${APP_PATH}/cobrancas/nova`}>
             <FileText /> Nova cobrança
@@ -102,6 +115,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           value={formatMoney(totals.incomePaid)}
           icon={<ArrowUpRight />}
           tone="income"
+          delta={{ percent: change(totals.incomePaid, previous.income), positiveIsGood: true, label: prevLabel }}
           hint={totals.incomePending > 0 ? `+ ${formatMoney(totals.incomePending)} a receber no mês` : "Receitas pagas no mês"}
         />
         <StatCard
@@ -109,6 +123,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           value={formatMoney(totals.expensePaid)}
           icon={<ArrowDownRight />}
           tone="expense"
+          delta={{ percent: change(totals.expensePaid, previous.expense), positiveIsGood: false, label: prevLabel }}
           hint={totals.expensePending > 0 ? `+ ${formatMoney(totals.expensePending)} a pagar no mês` : "Despesas pagas no mês"}
         />
         <StatCard
@@ -116,6 +131,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           value={formatMoney(profit)}
           icon={<Wallet />}
           tone="brand"
+          delta={{ percent: change(profit, previous.profit), positiveIsGood: true, label: prevLabel }}
           hint={`Imposto estimado (${formatPercentBp(user.taxRateBp)}): ${formatMoney(taxEstimate)}`}
         />
         <StatCard
@@ -297,7 +313,12 @@ function Onboarding({ hasPix, hasClient, welcome }: { hasPix: boolean; hasClient
     { done: hasPix, label: "Cadastre sua chave Pix", text: "Ela aparece nas cobranças com QR Code.", href: `${APP_PATH}/configuracoes` },
     { done: hasClient, label: "Adicione um cliente", text: "Para saber quem mais te paga.", href: `${APP_PATH}/clientes` },
     { done: false, label: "Lance sua primeira receita", text: "Use os botões acima.", href: `${APP_PATH}/lancamentos` },
-    { done: false, label: "Envie uma cobrança", text: "Com link e Pix para o cliente pagar.", href: `${APP_PATH}/cobrancas/nova` },
+    {
+      done: false,
+      label: "Envie um orçamento",
+      text: "O cliente aprova e a cobrança com Pix sai sozinha.",
+      href: `${APP_PATH}/orcamentos/novo`,
+    },
   ];
   return (
     <section className="mb-6 overflow-hidden rounded-2xl border bg-card shadow-xs">

@@ -10,6 +10,7 @@ import { categoriesFor } from "../categories";
 import { APP_PATH, FREE_LIMITS } from "../config";
 import { countActiveClients } from "../data";
 import { addMonthsToDate, isValidISODate } from "../dates";
+import { ATTACHMENT_TYPES, removeFile, storeUpload } from "../files";
 import { parseMoney } from "../money";
 
 function refresh() {
@@ -60,14 +61,40 @@ export async function saveTransaction(_: ActionState, formData: FormData): Promi
   const clientId = (await ownedClientId(user.id, text(formData, "clientId", 64))) ?? project?.clientId ?? null;
   const values = { type, description, amountCents, category, date, status, clientId, projectId: project?.id ?? null };
 
+  // Comprovante (plano Pro, com armazenamento ativo).
+  const file = formData.get("attachment");
+  let attachment: { attachmentKey: string; attachmentName: string; attachmentType: string; attachmentSize: number } | null = null;
+  if (file instanceof File && file.size > 0) {
+    if (!hasPro(user) || user.isDemo) return fail("Anexar comprovantes é um recurso do plano Pro.");
+    const stored = await storeUpload(`anexos/${user.id}`, file, ATTACHMENT_TYPES);
+    if ("error" in stored) return fail(stored.error);
+    attachment = {
+      attachmentKey: stored.key,
+      attachmentName: file.name.slice(0, 120),
+      attachmentType: file.type,
+      attachmentSize: file.size,
+    };
+  }
+
   const db = getDb();
   if (id) {
-    const result = await db
-      .update(transactions)
-      .set(values)
+    const [existing] = await db
+      .select({ attachmentKey: transactions.attachmentKey })
+      .from(transactions)
       .where(and(eq(transactions.id, id), eq(transactions.userId, user.id)))
-      .returning({ id: transactions.id });
-    if (result.length === 0) return fail("Lançamento não encontrado.");
+      .limit(1);
+    if (!existing) {
+      await removeFile(attachment?.attachmentKey);
+      return fail("Lançamento não encontrado.");
+    }
+    const clearAttachment = text(formData, "removeAttachment") === "on";
+    const attachmentValues =
+      attachment ?? (clearAttachment ? { attachmentKey: null, attachmentName: null, attachmentType: null, attachmentSize: null } : {});
+    await db
+      .update(transactions)
+      .set({ ...values, ...attachmentValues })
+      .where(and(eq(transactions.id, id), eq(transactions.userId, user.id)));
+    if (attachment || clearAttachment) await removeFile(existing.attachmentKey);
     refresh();
     return success("Lançamento atualizado.");
   }
@@ -77,8 +104,9 @@ export async function saveTransaction(_: ActionState, formData: FormData): Promi
     id: crypto.randomUUID(),
     userId: user.id,
     date: addMonthsToDate(date, i),
-    // Só o primeiro mês herda o status escolhido; os próximos ficam pendentes.
+    // Só o primeiro mês herda o status escolhido (e o comprovante); os próximos ficam pendentes.
     status: i === 0 ? status : ("pendente" as const),
+    ...(i === 0 && attachment ? attachment : {}),
     description: repeat > 1 ? `${description} (${i + 1}/${repeat})` : description,
   }));
   // D1 limita a quantidade de parâmetros por consulta, então inserimos em lotes.
@@ -93,9 +121,11 @@ export async function saveTransaction(_: ActionState, formData: FormData): Promi
 export async function deleteTransaction(_: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const id = text(formData, "id", 64);
-  await getDb()
+  const [deleted] = await getDb()
     .delete(transactions)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, user.id)));
+    .where(and(eq(transactions.id, id), eq(transactions.userId, user.id)))
+    .returning({ attachmentKey: transactions.attachmentKey });
+  await removeFile(deleted?.attachmentKey);
   refresh();
   return success("Lançamento excluído.");
 }

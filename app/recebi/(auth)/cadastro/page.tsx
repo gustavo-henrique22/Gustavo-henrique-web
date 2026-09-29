@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SignUpForm } from "@/components/recebi/auth-forms";
+import { GoogleButton } from "@/components/recebi/google-button";
 import { BASE_PATH } from "@/lib/recebi/config";
 
 export const metadata: Metadata = { title: "Criar conta" };
@@ -10,6 +11,7 @@ export default function SignUpPage() {
     <>
       <h1 className="text-3xl font-extrabold tracking-tight">Crie sua conta</h1>
       <p className="mt-2 mb-8 text-sm text-muted-foreground">Grátis para começar. Sem cartão de crédito.</p>
+      <GoogleButton label="Criar conta com Google" />
       <SignUpForm />
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Já tem conta?{" "}

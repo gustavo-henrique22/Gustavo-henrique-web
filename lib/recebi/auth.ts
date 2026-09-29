@@ -5,11 +5,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { getDb } from "@/db";
-import { passwordResets, sessions, users, type User } from "@/db/schema";
+import { loginAttempts, passwordResets, sessions, users, type User } from "@/db/schema";
 import { APP_PATH, BASE_PATH, SESSION_COOKIE, SESSION_DAYS } from "./config";
 import { hashPassword, randomToken, sha256Hex, verifyPassword } from "./crypto";
 
 export { hashPassword, verifyPassword };
+
+/** Valor guardado no lugar da senha para contas criadas pelo login com Google. */
+export const GOOGLE_ONLY_PASSWORD = "google";
 
 function isoIn(ms: number): string {
   return new Date(Date.now() + ms).toISOString();
@@ -31,7 +34,8 @@ export async function isAdminEmail(email: string): Promise<boolean> {
   // Sem a variável configurada, a primeira conta criada é a do administrador.
   const [{ count }] = await getDb()
     .select({ count: sql<number>`count(*)` })
-    .from(users);
+    .from(users)
+    .where(eq(users.isDemo, false));
   return count === 0;
 }
 
@@ -43,8 +47,11 @@ export async function createSession(userId: string): Promise<void> {
     userId,
     expiresAt: isoIn(SESSION_DAYS * 86_400_000),
   });
-  // Limpeza oportunista de sessões vencidas.
+  // Limpeza oportunista de sessões vencidas e de contadores antigos (tentativas, limites).
   await db.delete(sessions).where(lt(sessions.expiresAt, new Date().toISOString()));
+  await db
+    .delete(loginAttempts)
+    .where(lt(loginAttempts.createdAt, new Date(Date.now() - 2 * 86_400_000).toISOString().replace("T", " ").slice(0, 19)));
 
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {

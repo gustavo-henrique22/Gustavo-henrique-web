@@ -106,8 +106,8 @@ export default function Home() {
             <div className="project-content">
               <div className="project-meta"><span>Produto próprio · SaaS</span><span className="project-status practice">No ar</span></div>
               <h3>Recebi: finanças para freelancers</h3>
-              <p>Um sistema completo para freelancers e MEIs controlarem receitas e despesas, enviarem cobranças com Pix e acompanharem lucro, impostos e o limite do MEI.</p>
-              <ul className="tag-list" aria-label="Recursos"><li>Login e planos</li><li>Banco de dados</li><li>Pix com QR Code</li><li>Relatórios</li></ul>
+              <p>Um sistema completo para freelancers e MEIs: orçamentos que o cliente aprova online, cobranças com Pix, recibos, relatórios e o lucro real de cada mês.</p>
+              <ul className="tag-list" aria-label="Recursos"><li>Orçamentos online</li><li>Pix com QR Code</li><li>Pagamentos</li><li>App no celular</li></ul>
               <a className="project-link" href="/recebi">Conhecer o Recebi <ArrowUpRight size={16} /></a>
             </div>
           </article>

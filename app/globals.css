@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+/* O Recebi escolhe o tema (claro/escuro/sistema) e marca o <html> com a classe "dark". */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root { --ink:#101c34; --paper:#f3f0e8; --paper-light:#fbfaf6; --lime:#c9ff3c; --orange:#ff6948; --line:rgba(16,28,52,.17); }
 /* Regras de elementos ficam na camada base para não sobrescrever as classes utilitárias do Tailwind. */
 @layer base {
@@ -106,7 +109,7 @@ main:not(.recebi *) a:focus-visible { outline:3px solid var(--orange); outline-o
 .about-section { padding-top:140px; padding-bottom:140px; }.about-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:100px; margin-top:60px; }.about-grid h2 { margin:0; font-size:clamp(3rem,5.5vw,5.8rem); letter-spacing:-.065em; line-height:.95; }.about-grid h2 em { color:var(--orange); }
 .about-copy>p { margin:0 0 22px; color:#5f697d; font-size:1.04rem; line-height:1.75; }.availability { margin-top:38px; padding-top:28px; border-top:1px solid var(--line); }.availability .status-dot { background:#55bd63; box-shadow:0 0 0 5px rgba(85,189,99,.12); }
 
-footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px; padding:70px max(24px,calc((100vw - 1220px)/2)) 35px; background:#0a1427; color:white; }.footer-mark { font-size:2.3rem; }footer p { margin:14px 0 0; color:rgba(255,255,255,.52); font-size:.86rem; }.footer-nav { display:flex; gap:30px; font-size:.75rem; font-weight:800; }.footer-nav a:hover { color:var(--lime); }footer small { grid-column:1/-1; padding-top:32px; border-top:1px solid rgba(255,255,255,.13); color:rgba(255,255,255,.37); font-size:.62rem; }
+body > main > footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px; padding:70px max(24px,calc((100vw - 1220px)/2)) 35px; background:#0a1427; color:white; }.footer-mark { font-size:2.3rem; }body > main > footer p { margin:14px 0 0; color:rgba(255,255,255,.52); font-size:.86rem; }.footer-nav { display:flex; gap:30px; font-size:.75rem; font-weight:800; }.footer-nav a:hover { color:var(--lime); }body > main > footer small { grid-column:1/-1; padding-top:32px; border-top:1px solid rgba(255,255,255,.13); color:rgba(255,255,255,.37); font-size:.62rem; }
 
 .reveal { opacity:0; animation:rise-in .75s cubic-bezier(.2,.8,.2,1) forwards; }.delay-1 { animation-delay:80ms; }.delay-2 { animation-delay:160ms; }.delay-3 { animation-delay:240ms; }.delay-4 { animation-delay:320ms; }
 @keyframes rise-in { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
@@ -124,7 +127,7 @@ footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px
   .project-visual { min-height:300px; }.landing-visual,.web-visual,.saas-visual { padding:30px 20px; }.project-content { padding:34px 24px 40px; }.project-meta { align-items:flex-start; flex-direction:column; }.project-content h3 { margin-top:24px; font-size:2.35rem; }.browser-shell { width:88%; }
   .process-grid { grid-template-columns:1fr; }.process-grid li { min-height:auto; }.process-grid h3 { margin-top:32px; }.process-cta { align-items:flex-start; flex-direction:column; padding:26px 22px; }
   .now-grid { grid-template-columns:1fr; }.now-grid aside { grid-column:auto; }.now-grid article,.now-grid aside { min-height:290px; padding:30px; }
-  .about-grid { grid-template-columns:1fr; gap:45px; margin-top:36px; }.about-grid h2 { font-size:3.4rem; }footer { grid-template-columns:1fr; gap:42px; }.footer-nav { flex-wrap:wrap; gap:18px 24px; }
+  .about-grid { grid-template-columns:1fr; gap:45px; margin-top:36px; }.about-grid h2 { font-size:3.4rem; }body > main > footer { grid-template-columns:1fr; gap:42px; }.footer-nav { flex-wrap:wrap; gap:18px 24px; }
 }
 
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; }.reveal { opacity:1; animation:none; }* { transition-duration:.01ms !important; } }
@@ -219,36 +222,35 @@ footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px
   --sidebar-ring: #c9ff3c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:has(.recebi) {
-    --background: #0a1323;
-    --foreground: #eef1f6;
-    --card: #101c32;
-    --card-foreground: #eef1f6;
-    --popover: #121f37;
-    --popover-foreground: #eef1f6;
-    --primary: #c9ff3c;
-    --primary-foreground: #101c34;
-    --secondary: #1b2945;
-    --secondary-foreground: #eef1f6;
-    --muted: #172440;
-    --muted-foreground: #9aa6bd;
-    --accent: #1b2945;
-    --accent-foreground: #eef1f6;
-    --destructive: #ff6b52;
-    --border: #22314f;
-    --input: #2b3b5c;
-    --ring: #c9ff3c;
-    --income: #4ade80;
-    --expense: #ff7a5c;
-    --warning: #fbbf24;
-    --chart-1: #4ade80;
-    --chart-2: #ff7a5c;
-    --chart-3: #c9ff3c;
-    --chart-4: #7d89a3;
-    --chart-5: #e2b93b;
-    --sidebar: #070e1b;
-  }
+:root.dark:has(.recebi) {
+  color-scheme: dark;
+  --background: #0a1323;
+  --foreground: #eef1f6;
+  --card: #101c32;
+  --card-foreground: #eef1f6;
+  --popover: #121f37;
+  --popover-foreground: #eef1f6;
+  --primary: #c9ff3c;
+  --primary-foreground: #101c34;
+  --secondary: #1b2945;
+  --secondary-foreground: #eef1f6;
+  --muted: #172440;
+  --muted-foreground: #9aa6bd;
+  --accent: #1b2945;
+  --accent-foreground: #eef1f6;
+  --destructive: #ff6b52;
+  --border: #22314f;
+  --input: #2b3b5c;
+  --ring: #c9ff3c;
+  --income: #4ade80;
+  --expense: #ff7a5c;
+  --warning: #fbbf24;
+  --chart-1: #4ade80;
+  --chart-2: #ff7a5c;
+  --chart-3: #c9ff3c;
+  --chart-4: #7d89a3;
+  --chart-5: #e2b93b;
+  --sidebar: #070e1b;
 }
 
 body:has(.recebi) {
@@ -263,7 +265,9 @@ body:has(.recebi) {
 .recebi ::selection { background: var(--brand); color: var(--brand-ink); }
 
 @media print {
-  :root:has(.recebi) {
+  :root:has(.recebi),
+  :root.dark:has(.recebi) {
+    color-scheme: light;
     --background: #ffffff; --foreground: #101c34; --card: #ffffff; --card-foreground: #101c34;
     --muted: #f2f1ec; --muted-foreground: #5c6679; --border: #e2dfd6; --primary: #101c34; --primary-foreground: #ffffff;
   }
