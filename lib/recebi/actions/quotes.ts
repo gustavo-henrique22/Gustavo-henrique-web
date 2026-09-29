@@ -12,8 +12,9 @@ import { countQuotesInMonth } from "../data";
 import { addDays, currentMonth, isValidISODate, todayISO } from "../dates";
 import { randomToken } from "../crypto";
 import { createInvoice, nextQuoteNumber, parseItems } from "../documents";
+import { logEvent, notify, requestIp } from "../activity";
+import { formatMoney, parseMoney } from "../money";
 import { notifyQuoteDecision, sendQuoteEmail } from "../notifications";
-import { parseMoney } from "../money";
 
 const PAYMENT_TERMS = [0, 3, 7, 10, 15, 30];
 
@@ -92,10 +93,12 @@ export async function saveQuote(_: ActionState, formData: FormData): Promise<Act
   };
 
   let quoteId = id;
+  let previousStatus: string | null = null;
   if (id) {
     const existing = await findQuote(user.id, id);
     if (!existing) return fail("Orçamento não encontrado.");
     if (existing.status === "aprovado") return fail("Este orçamento já foi aprovado e não pode mais ser editado.");
+    previousStatus = existing.status;
     // Editar um orçamento recusado o reenvia para o cliente decidir de novo.
     const status = intent === "enviar" || existing.status === "recusado" ? "enviado" : existing.status;
     await db
@@ -123,6 +126,9 @@ export async function saveQuote(_: ActionState, formData: FormData): Promise<Act
     });
   }
   await insertQuoteItems(quoteId, items);
+  if (!previousStatus) await logEvent(user.id, "orcamento", quoteId, "criado");
+  const nowSent = intent === "enviar" || previousStatus === "recusado" || previousStatus === "enviado";
+  if (nowSent && previousStatus !== "enviado") await logEvent(user.id, "orcamento", quoteId, "enviado");
 
   refresh();
   redirect(`${APP_PATH}/orcamentos/${quoteId}${intent === "enviar" ? "?enviar=1" : ""}`);
@@ -137,17 +143,23 @@ export async function setQuoteStatus(_: ActionState, formData: FormData): Promis
   if (quote.status === "aprovado") return fail("Este orçamento já foi aprovado.");
   if (status !== "enviado" && status !== "rascunho") return fail("Status inválido.");
   await getDb().update(quotes).set({ status, decidedAt: null, decisionNote: "" }).where(eq(quotes.id, id));
+  if (status === "enviado") await logEvent(user.id, "orcamento", id, "enviado");
   refresh();
   return success(status === "enviado" ? "Orçamento liberado. Agora é só enviar o link." : "Orçamento voltou para rascunho.");
 }
 
 /** Aprova o orçamento e cria a cobrança correspondente. Usado pelo cliente (link) e pelo freelancer. */
-async function approve(quote: typeof quotes.$inferSelect) {
+async function approve(quote: typeof quotes.$inferSelect, acceptance: { name: string; ip: string } | null) {
   const db = getDb();
   // Marca como aprovado só se ainda não estava: evita duas cobranças com clique duplo.
   const claimed = await db
     .update(quotes)
-    .set({ status: "aprovado", decidedAt: new Date().toISOString() })
+    .set({
+      status: "aprovado",
+      decidedAt: new Date().toISOString(),
+      acceptedName: acceptance?.name ?? null,
+      acceptedIp: acceptance?.ip ?? null,
+    })
     .where(and(eq(quotes.id, quote.id), ne(quotes.status, "aprovado")))
     .returning({ id: quotes.id });
   if (claimed.length === 0) return null;
@@ -166,7 +178,25 @@ async function approve(quote: typeof quotes.$inferSelect) {
     items,
   });
   await db.update(quotes).set({ invoiceId: invoice.id }).where(eq(quotes.id, quote.id));
+
+  const quoteNumber = String(quote.number).padStart(4, "0");
+  const invoiceNumber = String(invoice.number).padStart(4, "0");
+  await logEvent(
+    quote.userId,
+    "orcamento",
+    quote.id,
+    acceptance ? "aprovado" : "aprovado-manual",
+    acceptance ? `Aceite eletrônico de ${acceptance.name}` : "",
+  );
+  await logEvent(quote.userId, "orcamento", quote.id, "convertido", `Cobrança #${invoiceNumber}`);
+  await logEvent(quote.userId, "cobranca", invoice.id, "criado", `A partir do orçamento #${quoteNumber}`);
   return invoice;
+}
+
+async function clientNameOf(clientId: string | null): Promise<string> {
+  if (!clientId) return "Seu cliente";
+  const [row] = await getDb().select({ name: clients.name }).from(clients).where(eq(clients.id, clientId)).limit(1);
+  return row?.name ?? "Seu cliente";
 }
 
 export async function approveQuoteAsOwner(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -174,7 +204,7 @@ export async function approveQuoteAsOwner(_: ActionState, formData: FormData): P
   const quote = await findQuote(user.id, text(formData, "id", 64));
   if (!quote) return fail("Orçamento não encontrado.");
   if (quote.status === "aprovado") return fail("Este orçamento já foi aprovado.");
-  const invoice = await approve(quote);
+  const invoice = await approve(quote, null);
   if (!invoice) return fail("Este orçamento já foi aprovado.");
   refresh();
   redirect(`${APP_PATH}/cobrancas/${invoice.id}?enviar=1`);
@@ -193,9 +223,18 @@ export async function approveQuoteByClient(_: ActionState, formData: FormData): 
   if (quote.status === "aprovado") return fail("Este orçamento já foi aprovado.");
   if (quote.status === "recusado") return fail("Este orçamento foi recusado. Peça uma nova versão.");
   if (quote.validUntil < todayISO()) return fail("Este orçamento expirou. Peça uma nova versão.");
+  const acceptedName = text(formData, "acceptedName", 120);
+  if (acceptedName.length < 3) return fail("Digite seu nome completo para aprovar.");
+  if (formData.get("accept") !== "on") return fail("Confirme que leu e aceita as condições do orçamento.");
 
-  const invoice = await approve(quote);
+  const invoice = await approve(quote, { name: acceptedName, ip: await requestIp() });
   if (!invoice) return fail("Este orçamento já foi aprovado.");
+  await notify(quote.userId, {
+    type: "aprovado",
+    title: `🎉 ${await clientNameOf(quote.clientId)} aprovou o orçamento #${String(quote.number).padStart(4, "0")}`,
+    body: `A cobrança de ${formatMoney(quote.totalCents)} já foi criada e enviada.`,
+    href: `${APP_PATH}/cobrancas/${invoice.id}`,
+  });
   await notifyQuoteDecision(quote.id, "aprovado");
   revalidatePath(APP_PATH, "layout");
   redirect(`${BASE_PATH}/c/${invoice.publicToken}?aprovado=1`);
@@ -212,6 +251,13 @@ export async function rejectQuoteByClient(_: ActionState, formData: FormData): P
     .update(quotes)
     .set({ status: "recusado", decidedAt: new Date().toISOString(), decisionNote: note })
     .where(eq(quotes.id, quote.id));
+  await logEvent(quote.userId, "orcamento", quote.id, "recusado", note);
+  await notify(quote.userId, {
+    type: "recusado",
+    title: `${await clientNameOf(quote.clientId)} recusou o orçamento #${String(quote.number).padStart(4, "0")}`,
+    body: note ? `“${note}”` : "O cliente não deixou comentário.",
+    href: `${APP_PATH}/orcamentos/${quote.id}`,
+  });
   await notifyQuoteDecision(quote.id, "recusado");
   revalidatePath(APP_PATH, "layout");
   return success("Resposta enviada. Obrigado!");
@@ -253,6 +299,7 @@ export async function duplicateQuote(_: ActionState, formData: FormData): Promis
     notes: quote.notes,
   });
   await insertQuoteItems(newId, items);
+  await logEvent(user.id, "orcamento", newId, "criado", `Cópia do orçamento #${String(quote.number).padStart(4, "0")}`);
   refresh();
   redirect(`${APP_PATH}/orcamentos/${newId}/editar`);
 }
@@ -263,6 +310,7 @@ export async function emailQuote(_: ActionState, formData: FormData): Promise<Ac
   if (!quote) return fail("Orçamento não encontrado.");
   if (quote.status !== "enviado") return fail("Só é possível enviar orçamentos liberados e aguardando resposta.");
   const ok = await sendQuoteEmail(user.id, quote.id);
+  if (ok) await logEvent(user.id, "orcamento", quote.id, "email");
   return ok
     ? success("Orçamento enviado por e-mail ao cliente.")
     : fail("Não foi possível enviar. Confira se o cliente tem e-mail cadastrado.");

@@ -12,6 +12,7 @@ import { APP_PATH, FREE_LIMITS } from "../config";
 import { countInvoicesInMonth } from "../data";
 import { addDays, currentMonth, daysBetween, isValidISODate, todayISO } from "../dates";
 import { randomToken } from "../crypto";
+import { logEvent } from "../activity";
 import { createInvoice, parseItems } from "../documents";
 import { sendInvoiceEmail, sendReceiptEmail } from "../notifications";
 import { parseMoney } from "../money";
@@ -80,10 +81,12 @@ export async function saveInvoice(_: ActionState, formData: FormData): Promise<A
   };
 
   let invoiceId = id;
+  let previousStatus: string | null = null;
   if (id) {
     const existing = await findInvoice(user.id, id);
     if (!existing) return fail("Cobrança não encontrada.");
     if (existing.status === "paga") return fail("Esta cobrança já foi paga e não pode mais ser editada.");
+    previousStatus = existing.status;
     await db
       .update(invoices)
       .set({ ...values, status: intent === "enviar" && existing.status === "rascunho" ? "enviada" : existing.status })
@@ -113,6 +116,9 @@ export async function saveInvoice(_: ActionState, formData: FormData): Promise<A
   for (let i = 0; i < rows.length; i += 10) {
     await db.insert(invoiceItems).values(rows.slice(i, i + 10));
   }
+  if (!previousStatus) await logEvent(user.id, "cobranca", invoiceId, "criado");
+  if (intent === "enviar" && (previousStatus === null || previousStatus === "rascunho"))
+    await logEvent(user.id, "cobranca", invoiceId, "enviado");
 
   refresh();
   redirect(`${APP_PATH}/cobrancas/${invoiceId}${intent === "enviar" ? "?enviar=1" : ""}`);
@@ -128,6 +134,8 @@ export async function setInvoiceStatus(_: ActionState, formData: FormData): Prom
   if (status !== "enviada" && status !== "cancelada" && status !== "rascunho") return fail("Status inválido.");
 
   await getDb().update(invoices).set({ status }).where(eq(invoices.id, id));
+  if (status === "enviada" || status === "cancelada")
+    await logEvent(user.id, "cobranca", id, status === "enviada" ? "enviado" : "cancelado");
   refresh();
   return success(
     status === "enviada"
@@ -172,6 +180,7 @@ export async function markInvoicePaid(_: ActionState, formData: FormData): Promi
     projectId: invoice.projectId,
     invoiceId: invoice.id,
   });
+  await logEvent(user.id, "cobranca", invoice.id, "pago", `Pago em ${paidAt.split("-").reverse().join("/")}`);
   const receiptSent = text(formData, "sendReceipt") === "on" && (await sendReceiptEmail(invoice.id));
   refresh();
   return success(
@@ -190,6 +199,7 @@ export async function undoInvoicePayment(_: ActionState, formData: FormData): Pr
   const db = getDb();
   await db.update(invoices).set({ status: "enviada", paidAt: null }).where(eq(invoices.id, id));
   await db.delete(transactions).where(and(eq(transactions.userId, user.id), eq(transactions.invoiceId, id)));
+  await logEvent(user.id, "cobranca", id, "pagamento-desfeito");
   refresh();
   return success("Pagamento desfeito e receita removida dos lançamentos.");
 }
@@ -227,6 +237,7 @@ export async function duplicateInvoice(_: ActionState, formData: FormData): Prom
     notes: invoice.notes,
     items,
   });
+  await logEvent(user.id, "cobranca", created.id, "criado", `Cópia da cobrança #${String(invoice.number).padStart(4, "0")}`);
   refresh();
   redirect(`${APP_PATH}/cobrancas/${created.id}/editar`);
 }
@@ -237,7 +248,46 @@ export async function emailInvoice(_: ActionState, formData: FormData): Promise<
   if (!invoice) return fail("Cobrança não encontrada.");
   if (invoice.status !== "enviada") return fail("Só é possível enviar cobranças liberadas e ainda não pagas.");
   const ok = await sendInvoiceEmail(user.id, invoice.id);
+  if (ok) await logEvent(user.id, "cobranca", invoice.id, "email");
   return ok
     ? success("Cobrança enviada por e-mail ao cliente.")
     : fail("Não foi possível enviar. Confira se o cliente tem e-mail cadastrado.");
+}
+
+/** Cobrança rápida: um item, valor e vencimento. Já sai liberada para enviar o link. */
+export async function quickCharge(_: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const description = text(formData, "description", 200);
+  const amountCents = parseMoney(text(formData, "amount", 30));
+  const dueDate = text(formData, "dueDate", 10);
+  if (!description) return fail("Diga o que está cobrando. Ex.: Ajustes no site");
+  if (amountCents === null || amountCents <= 0) return fail("Informe um valor maior que zero.");
+  if (!isValidISODate(dueDate) || dueDate < todayISO()) return fail("Escolha um vencimento de hoje em diante.");
+  if (!hasPro(user) && (await countInvoicesInMonth(user.id, currentMonth())) >= FREE_LIMITS.invoicesPerMonth) {
+    return fail(`O plano Grátis permite ${FREE_LIMITS.invoicesPerMonth} cobranças por mês. Conheça o Pro para cobranças ilimitadas.`);
+  }
+
+  const clientIdInput = text(formData, "clientId", 64);
+  const [client] = clientIdInput
+    ? await getDb()
+        .select({ id: clients.id })
+        .from(clients)
+        .where(and(eq(clients.userId, user.id), eq(clients.id, clientIdInput)))
+        .limit(1)
+    : [];
+
+  const created = await createInvoice({
+    userId: user.id,
+    clientId: client?.id ?? null,
+    projectId: null,
+    status: "enviada",
+    issueDate: todayISO(),
+    dueDate,
+    discountCents: 0,
+    notes: "",
+    items: [{ description, quantity: 1, unitPriceCents: amountCents }],
+  });
+  await logEvent(user.id, "cobranca", created.id, "criado", "Cobrança rápida");
+  refresh();
+  redirect(`${APP_PATH}/cobrancas/${created.id}?enviar=1`);
 }

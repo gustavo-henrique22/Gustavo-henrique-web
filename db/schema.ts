@@ -38,9 +38,22 @@ export const users = sqliteTable(
     autoReminders: integer("auto_reminders", { mode: "boolean" }).notNull().default(true),
     /** Chave do arquivo de logo no armazenamento (R2), usada nas cobranças do plano Pro. */
     logoKey: text("logo_key"),
+    /** Valor da hora usado no controle de horas (centavos). */
+    hourlyRateCents: integer("hourly_rate_cents").notNull().default(0),
+    /** Endereço da página pública: /recebi/p/<slug>. */
+    slug: text("slug"),
+    publicProfile: integer("public_profile", { mode: "boolean" }).notNull().default(false),
+    headline: text("headline").notNull().default(""),
+    bio: text("bio").notNull().default(""),
+    /** Receber o resumo do mês por e-mail. */
+    monthlySummary: integer("monthly_summary", { mode: "boolean" }).notNull().default(true),
     createdAt: createdAt(),
   },
-  (table) => [uniqueIndex("users_email_unique").on(table.email), uniqueIndex("users_google_sub_unique").on(table.googleSub)],
+  (table) => [
+    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_google_sub_unique").on(table.googleSub),
+    uniqueIndex("users_slug_unique").on(table.slug),
+  ],
 );
 
 export const sessions = sqliteTable(
@@ -108,6 +121,8 @@ export const projects = sqliteTable(
       .notNull()
       .default("ativo"),
     budgetCents: integer("budget_cents").notNull().default(0),
+    /** Valor da hora deste projeto; 0 usa o valor padrão da conta. */
+    hourlyRateCents: integer("hourly_rate_cents").notNull().default(0),
     dueDate: text("due_date"),
     notes: text("notes").notNull().default(""),
     createdAt: createdAt(),
@@ -135,6 +150,11 @@ export const invoices = sqliteTable(
     totalCents: integer("total_cents").notNull().default(0),
     notes: text("notes").notNull().default(""),
     paidAt: text("paid_at"),
+    /** Primeira vez que o cliente abriu o link e quantas vezes abriu. */
+    viewedAt: text("viewed_at"),
+    viewCount: integer("view_count").notNull().default(0),
+    /** Cobrança gerada por uma recorrência mensal. */
+    recurringId: text("recurring_id"),
     createdAt: createdAt(),
   },
   (table) => [
@@ -182,9 +202,15 @@ export const transactions = sqliteTable(
     attachmentName: text("attachment_name"),
     attachmentType: text("attachment_type"),
     attachmentSize: integer("attachment_size"),
+    /** Identificador do lançamento no extrato importado (evita importar duas vezes). */
+    externalId: text("external_id"),
     createdAt: createdAt(),
   },
-  (table) => [index("transactions_user_date_idx").on(table.userId, table.date), index("transactions_invoice_idx").on(table.invoiceId)],
+  (table) => [
+    index("transactions_user_date_idx").on(table.userId, table.date),
+    index("transactions_invoice_idx").on(table.invoiceId),
+    index("transactions_external_idx").on(table.userId, table.externalId),
+  ],
 );
 
 /** Orçamentos: o cliente aprova pelo link e o orçamento vira cobrança. */
@@ -212,6 +238,11 @@ export const quotes = sqliteTable(
     notes: text("notes").notNull().default(""),
     decidedAt: text("decided_at"),
     decisionNote: text("decision_note").notNull().default(""),
+    viewedAt: text("viewed_at"),
+    viewCount: integer("view_count").notNull().default(0),
+    /** Aceite eletrônico: nome digitado pelo cliente e endereço de rede no momento da aprovação. */
+    acceptedName: text("accepted_name"),
+    acceptedIp: text("accepted_ip"),
     createdAt: createdAt(),
   },
   (table) => [
@@ -267,6 +298,141 @@ export const payments = sqliteTable(
   (table) => [index("payments_user_idx").on(table.userId)],
 );
 
+/** Linha do tempo de orçamentos e cobranças (criado, enviado, visualizado, aprovado, pago…). */
+export const documentEvents = sqliteTable(
+  "document_events",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    documentType: text("document_type", { enum: ["orcamento", "cobranca"] }).notNull(),
+    documentId: text("document_id").notNull(),
+    type: text("type").notNull(),
+    detail: text("detail").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (table) => [index("document_events_doc_idx").on(table.documentId, table.createdAt)],
+);
+
+/** Avisos no sininho do painel. */
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    href: text("href").notNull().default(""),
+    readAt: text("read_at"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("notifications_user_idx").on(table.userId, table.createdAt)],
+);
+
+/** Controle de horas: cada linha é um período trabalhado (endedAt nulo = cronômetro rodando). */
+export const timeEntries = sqliteTable(
+  "time_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    description: text("description").notNull().default(""),
+    startedAt: text("started_at").notNull(),
+    endedAt: text("ended_at"),
+    durationSeconds: integer("duration_seconds").notNull().default(0),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("time_entries_user_idx").on(table.userId, table.startedAt)],
+);
+
+/** Regras de categorização automática: "se a descrição contém X, use a categoria Y". */
+export const categoryRules = sqliteTable(
+  "category_rules",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    pattern: text("pattern").notNull(),
+    type: text("type", { enum: ["receita", "despesa"] }).notNull(),
+    category: text("category").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("category_rules_user_idx").on(table.userId)],
+);
+
+/** Cobranças recorrentes: geradas automaticamente todo mês para clientes mensais. */
+export const recurringInvoices = sqliteTable(
+  "recurring_invoices",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    description: text("description").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    dayOfMonth: integer("day_of_month").notNull().default(5),
+    dueDays: integer("due_days").notNull().default(5),
+    nextDate: text("next_date").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    autoSend: integer("auto_send", { mode: "boolean" }).notNull().default(true),
+    lastInvoiceId: text("last_invoice_id"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("recurring_user_idx").on(table.userId), index("recurring_next_idx").on(table.active, table.nextDate)],
+);
+
+/** Serviços exibidos na página pública do freelancer. */
+export const services = sqliteTable(
+  "services",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    priceCents: integer("price_cents").notNull().default(0),
+    priceType: text("price_type", { enum: ["fixo", "a-partir", "hora", "consulta"] })
+      .notNull()
+      .default("a-partir"),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (table) => [index("services_user_idx").on(table.userId)],
+);
+
+/** Pedidos de orçamento enviados pela página pública. */
+export const quoteRequests = sqliteTable(
+  "quote_requests",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    serviceId: text("service_id").references(() => services.id, { onDelete: "set null" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    message: text("message").notNull().default(""),
+    status: text("status", { enum: ["novo", "respondido", "arquivado"] })
+      .notNull()
+      .default("novo"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("quote_requests_user_idx").on(table.userId, table.createdAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -276,3 +442,8 @@ export type Transaction = typeof transactions.$inferSelect;
 export type Quote = typeof quotes.$inferSelect;
 export type QuoteItem = typeof quoteItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type Service = typeof services.$inferSelect;
+export type RecurringInvoice = typeof recurringInvoices.$inferSelect;
+export type QuoteRequest = typeof quoteRequests.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;

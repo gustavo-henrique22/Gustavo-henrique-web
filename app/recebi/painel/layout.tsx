@@ -1,14 +1,17 @@
 import { AppSidebar, DesktopTopbar, MobileNav } from "@/components/recebi/app-nav";
 import { CommandMenuProvider } from "@/components/recebi/command-menu";
 import { DemoBanner } from "@/components/recebi/demo-banner";
+import { unreadNotifications } from "@/lib/recebi/activity";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
-import { listClients } from "@/lib/recebi/data";
+import { listClients, runningTimer } from "@/lib/recebi/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const clients = await listClients(user.id);
+  const [clients, notices, running] = await Promise.all([listClients(user.id), unreadNotifications(user.id), runningTimer(user.id)]);
+  const timer = running ? { startedAt: running.entry.startedAt, label: running.projectName ?? (running.entry.description || null) } : null;
+  const bell = { items: notices.items, unread: notices.unread };
   const navUser = { name: user.name, email: user.email, isAdmin: user.isAdmin, isPro: hasPro(user), isDemo: user.isDemo };
 
   return (
@@ -17,8 +20,8 @@ export default async function PainelLayout({ children }: { children: React.React
         <AppSidebar user={navUser} />
         <div className="flex min-w-0 flex-1 flex-col">
           {user.isDemo ? <DemoBanner /> : null}
-          <MobileNav user={navUser} />
-          <DesktopTopbar />
+          <MobileNav user={navUser} bell={bell} timer={timer} />
+          <DesktopTopbar bell={bell} timer={timer} />
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</main>
         </div>
       </div>

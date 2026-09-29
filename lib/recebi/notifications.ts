@@ -3,6 +3,7 @@
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clients, invoiceReminders, invoices, loginAttempts, quotes, users, type User } from "@/db/schema";
+import { logEvent } from "./activity";
 import { APP_PATH, BASE_PATH } from "./config";
 import { addDays, daysBetween, formatDate, todayISO } from "./dates";
 import { emailEnabled, emailLayout, escapeHtml, sendEmail } from "./email";
@@ -10,6 +11,11 @@ import { formatMoney } from "./money";
 import { siteOrigin } from "./origin";
 
 const pad = (n: number) => String(n).padStart(4, "0");
+const REMINDER_LABELS = {
+  antes: "3 dias antes do vencimento",
+  vencimento: "No dia do vencimento",
+  atraso: "3 dias após o vencimento",
+} as const;
 
 /** Limite diário de e-mails para clientes, por freelancer (evita uso do Recebi para spam). */
 async function reserveClientEmail(owner: Pick<User, "id" | "isDemo" | "plan" | "planExpiresAt">): Promise<boolean> {
@@ -268,6 +274,7 @@ export async function sendDueReminders(): Promise<{ sent: number; checked: numbe
     const ok = await sendInvoiceEmail(invoice.userId, invoice.id, kind);
     if (ok) {
       await db.insert(invoiceReminders).values({ id: crypto.randomUUID(), invoiceId: invoice.id, kind }).onConflictDoNothing();
+      await logEvent(invoice.userId, "cobranca", invoice.id, "lembrete", REMINDER_LABELS[kind]);
       sent++;
     }
   }

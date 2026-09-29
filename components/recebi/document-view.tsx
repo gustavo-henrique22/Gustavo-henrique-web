@@ -1,5 +1,6 @@
 import type { Client, Invoice, InvoiceItem, Quote, QuoteItem, User } from "@/db/schema";
-import { formatDate } from "@/lib/recebi/dates";
+import { ShieldCheck } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
 import { cn } from "@/lib/utils";
 import { InvoiceStatusBadge, QuoteStatusBadge } from "./invoice-status";
@@ -18,6 +19,8 @@ type ViewProps = {
   notes: string;
   notesLabel: string;
   stamp?: { label: string; date: string | null };
+  /** Texto do aceite eletrônico (orçamentos aprovados pelo cliente). */
+  acceptance?: string | null;
   client: Client | null;
   owner: Owner;
   logoUrl?: string | null;
@@ -36,6 +39,7 @@ function DocumentView({
   notes,
   notesLabel,
   stamp,
+  acceptance,
   client,
   owner,
   logoUrl,
@@ -138,6 +142,13 @@ function DocumentView({
         </dl>
       </div>
 
+      {acceptance ? (
+        <p className="mt-6 flex items-start gap-2 rounded-xl border border-income/30 bg-income/5 px-4 py-3 text-xs text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-income" aria-hidden />
+          <span>{acceptance}</span>
+        </p>
+      ) : null}
+
       {notes ? (
         <div className="mt-8 border-t pt-4 text-sm whitespace-pre-line text-muted-foreground">
           <p className="mb-1 font-semibold text-foreground">{notesLabel}</p>
@@ -189,6 +200,11 @@ export function QuoteDocument({ quote, items, ...rest }: Common & { quote: Quote
       notes={quote.notes}
       notesLabel="Condições e observações"
       stamp={quote.status === "aprovado" ? { label: "APROVADO", date: quote.decidedAt?.slice(0, 10) ?? null } : undefined}
+      acceptance={
+        quote.status === "aprovado" && quote.acceptedName && quote.decidedAt
+          ? `Aprovado eletronicamente por ${quote.acceptedName} em ${formatDateTime(quote.decidedAt)} (horário de Brasília)${quote.acceptedIp ? `, a partir do endereço ${quote.acceptedIp}` : ""}.`
+          : null
+      }
     />
   );
 }

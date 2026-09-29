@@ -276,6 +276,17 @@ export function ProjectFields({ project, clients }: { project?: Project; clients
         </FormField>
       </div>
       <FormField
+        id="hourlyRate"
+        label={
+          <>
+            Valor da hora neste projeto <span className="font-normal text-muted-foreground">(opcional)</span>
+          </>
+        }
+        hint="Deixe vazio para usar o valor padrão das Configurações."
+      >
+        <MoneyInput id="hourlyRate" name="hourlyRate" defaultCents={project?.hourlyRateCents || undefined} />
+      </FormField>
+      <FormField
         id="notes"
         label={
           <>

@@ -6,7 +6,6 @@ import {
   Check,
   CircleDollarSign,
   FileSignature,
-  FileText,
   Landmark,
   PiggyBank,
   Target,
@@ -19,9 +18,12 @@ import { Progress } from "@/components/ui/progress";
 import { CashflowChart } from "@/components/recebi/cashflow-chart";
 import { MonthSwitcher } from "@/components/recebi/month-switcher";
 import { PageHeader } from "@/components/recebi/page-header";
+import { ForecastCard } from "@/components/recebi/forecast-card";
+import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { requireUser } from "@/lib/recebi/auth";
+import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
 import {
   agenda,
@@ -49,20 +51,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const year = month.slice(0, 4);
   const today = todayISO();
 
-  const [totals, series, receivables, payables, upcoming, clientsList, projectRows, topClients, yearIncome, anyData, clientCount] =
-    await Promise.all([
-      monthTotals(user.id, month),
-      monthlySeries(user.id, month, 6),
-      openReceivables(user.id),
-      openPayables(user.id),
-      agenda(user.id, 7),
-      listClients(user.id),
-      listProjects(user.id),
-      incomeByClient(user.id, `${year}-01-01`, `${year}-12-31`, 5),
-      paidIncomeBetween(user.id, `${year}-01-01`, `${year}-12-31`),
-      hasAnyData(user.id),
-      countActiveClients(user.id),
-    ]);
+  const [
+    totals,
+    series,
+    receivables,
+    payables,
+    upcoming,
+    clientsList,
+    projectRows,
+    topClients,
+    yearIncome,
+    anyData,
+    clientCount,
+    forecast,
+  ] = await Promise.all([
+    monthTotals(user.id, month),
+    monthlySeries(user.id, month, 6),
+    openReceivables(user.id),
+    openPayables(user.id),
+    agenda(user.id, 7),
+    listClients(user.id),
+    listProjects(user.id),
+    incomeByClient(user.id, `${year}-01-01`, `${year}-12-31`, 5),
+    paidIncomeBetween(user.id, `${year}-01-01`, `${year}-12-31`),
+    hasAnyData(user.id),
+    countActiveClients(user.id),
+    cashForecast(user.id),
+  ]);
 
   const projects = projectRows.map((r) => r.project);
   const profit = totals.incomePaid - totals.expensePaid;
@@ -100,11 +115,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <FileSignature /> Novo orçamento
           </Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link href={`${APP_PATH}/cobrancas/nova`}>
-            <FileText /> Nova cobrança
-          </Link>
-        </Button>
+        <QuickChargeButton clients={clientsList} />
       </div>
 
       {!anyData ? <Onboarding hasPix={!!user.pixKey} hasClient={clientCount > 0} welcome={params["bem-vindo"] === "1"} /> : null}
@@ -222,6 +233,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </section>
         </div>
       </div>
+
+      {anyData ? (
+        <div className="mt-4">
+          <ForecastCard months={forecast.months} avgIncome={forecast.avgIncome} />
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <section className="rounded-2xl border bg-card p-5 shadow-xs lg:col-span-2" aria-labelledby="agenda-title">

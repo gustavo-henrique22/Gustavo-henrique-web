@@ -1,8 +1,19 @@
 // Consultas de leitura usadas pelas páginas do painel. Toda consulta filtra
 // pelo usuário logado; nunca chame estas funções com um id vindo do formulário.
-import { and, asc, desc, eq, gte, inArray, like, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clients, invoiceItems, invoices, projects, quoteItems, quotes, transactions, users } from "@/db/schema";
+import {
+  categoryRules,
+  clients,
+  invoiceItems,
+  invoices,
+  projects,
+  quoteItems,
+  quotes,
+  timeEntries,
+  transactions,
+  users,
+} from "@/db/schema";
 import { addMonths, monthBounds, todayISO } from "./dates";
 
 const sumAmount = sql<number>`coalesce(sum(${transactions.amountCents}), 0)`;
@@ -445,4 +456,49 @@ export async function getPublicQuote(token: string) {
   if (!row) return null;
   const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, row.quote.id)).orderBy(asc(quoteItems.position));
   return { ...row, items };
+}
+
+// ---------- Controle de horas ----------
+
+export async function runningTimer(userId: string) {
+  const [row] = await getDb()
+    .select({ entry: timeEntries, projectName: projects.name })
+    .from(timeEntries)
+    .leftJoin(projects, eq(projects.id, timeEntries.projectId))
+    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listTimeEntries(userId: string, sinceIso: string) {
+  return getDb()
+    .select({ entry: timeEntries, projectName: projects.name, invoiceNumber: invoices.number })
+    .from(timeEntries)
+    .leftJoin(projects, eq(projects.id, timeEntries.projectId))
+    .leftJoin(invoices, eq(invoices.id, timeEntries.invoiceId))
+    .where(and(eq(timeEntries.userId, userId), gte(timeEntries.startedAt, sinceIso), isNotNull(timeEntries.endedAt)))
+    .orderBy(desc(timeEntries.startedAt))
+    .limit(300);
+}
+
+/** Horas terminadas e ainda não cobradas, por projeto. */
+export async function unbilledHours(userId: string) {
+  return getDb()
+    .select({
+      projectId: timeEntries.projectId,
+      projectName: projects.name,
+      clientId: projects.clientId,
+      clientName: clients.name,
+      rate: projects.hourlyRateCents,
+      seconds: sql<number>`coalesce(sum(${timeEntries.durationSeconds}), 0)`,
+    })
+    .from(timeEntries)
+    .leftJoin(projects, eq(projects.id, timeEntries.projectId))
+    .leftJoin(clients, eq(clients.id, projects.clientId))
+    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.invoiceId), isNotNull(timeEntries.endedAt)))
+    .groupBy(timeEntries.projectId);
+}
+
+export async function listCategoryRules(userId: string) {
+  return getDb().select().from(categoryRules).where(eq(categoryRules.userId, userId)).orderBy(asc(categoryRules.pattern));
 }

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Check, Clock, Download, Paperclip, Pencil, Search, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Check, Clock, Download, FileUp, Paperclip, Pencil, Search, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,11 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         description="Todas as suas receitas e despesas."
         actions={
           <>
+            <Button variant="ghost" asChild>
+              <Link href={`${BASE}/importar`}>
+                <FileUp /> Importar extrato
+              </Link>
+            </Button>
             <NewTransactionButton
               type="receita"
               clients={clients}

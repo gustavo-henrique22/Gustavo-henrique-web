@@ -113,3 +113,40 @@ export function daysBetween(from: string, to: string): number {
   const b = Date.parse(`${to}T00:00:00Z`);
   return Math.round((b - a) / 86_400_000);
 }
+
+/** Aceita "2026-09-28T14:20:00.000Z" ou o formato do SQLite "2026-09-28 14:20:00" (UTC). */
+export function parseTimestamp(value: string): Date {
+  const iso = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
+  return new Date(iso);
+}
+
+/** "28/09/2026 às 14:20" no horário de São Paulo. */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = parseTimestamp(value);
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")} às ${get("hour")}:${get("minute")}`;
+}
+
+/** "agora", "há 5 min", "há 3 h", "ontem", "há 4 dias" ou a data. */
+export function formatRelative(value: string | null | undefined, now: Date = new Date()): string {
+  if (!value) return "—";
+  const diff = Math.max(0, now.getTime() - parseTimestamp(value).getTime());
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "ontem";
+  if (days < 7) return `há ${days} dias`;
+  return formatDateTime(value).split(" às ")[0];
+}

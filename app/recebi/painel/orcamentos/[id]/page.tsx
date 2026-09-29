@@ -8,7 +8,9 @@ import { ConfirmAction } from "@/components/recebi/confirm-action";
 import { QuoteDocument } from "@/components/recebi/document-view";
 import { quoteDisplayStatus } from "@/components/recebi/invoice-status";
 import { ShareLink } from "@/components/recebi/share-link";
+import { DocumentTimeline } from "@/components/recebi/timeline";
 import { approveQuoteAsOwner, deleteQuote, duplicateQuote, emailQuote, setQuoteStatus } from "@/lib/recebi/actions/quotes";
+import { listEvents } from "@/lib/recebi/activity";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { getQuote } from "@/lib/recebi/data";
@@ -34,6 +36,7 @@ export default async function QuotePage({
   const data = await getQuote(user.id, id);
   if (!data) notFound();
   const { quote, client, items, invoiceNumber } = data;
+  const events = await listEvents(user.id, quote.id);
 
   const number = String(quote.number).padStart(4, "0");
   const link = `${await siteOrigin()}${BASE_PATH}/o/${quote.publicToken}`;
@@ -148,6 +151,8 @@ export default async function QuotePage({
               </Button>
             </section>
           ) : null}
+
+          <DocumentTimeline events={events} viewCount={quote.viewCount} viewedAt={quote.viewedAt} />
 
           <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-xs">
             <h2 className="mb-1 font-bold">Mais ações</h2>

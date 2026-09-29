@@ -1,4 +1,4 @@
-import { Sparkles, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/recebi/action-button";
 import { ActionForm } from "@/components/recebi/action-form";
 import { FormField, MoneyInput } from "@/components/recebi/fields";
 import { PageHeader } from "@/components/recebi/page-header";
+import { ProNotice } from "@/components/recebi/pro-notice";
 import { InstallAppButton } from "@/components/recebi/pwa";
 import { ThemeSwitcher } from "@/components/recebi/theme";
 import {
@@ -13,6 +14,7 @@ import {
   deleteAccount,
   removeLogo,
   updateFinanceSettings,
+  updateHourlyRate,
   updatePaymentSettings,
   updateProfile,
   updateReminders,
@@ -47,20 +49,6 @@ function Section({
       </div>
       <div className="max-w-xl">{children}</div>
     </section>
-  );
-}
-
-function ProNotice({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-muted-foreground">{text}</p>
-      <Link
-        href={`${APP_PATH}/plano`}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-[#c9ff3c] px-3 py-1.5 text-xs font-bold text-[#101c34]"
-      >
-        <Sparkles className="size-3.5" /> Conhecer o Pro
-      </Link>
-    </div>
   );
 }
 
@@ -146,6 +134,19 @@ export default async function SettingsPage() {
               Se você é MEI e paga o DAS fixo, coloque 0% e lance o DAS como despesa na categoria &quot;Impostos (DAS, INSS)&quot;.
             </p>
           </ActionForm>
+        </Section>
+
+        <Section title="Valor da sua hora" description="Usado no controle de horas para transformar o tempo trabalhado em cobrança.">
+          <div id="valor-hora" className="grid scroll-mt-24 gap-3">
+            <ActionForm action={updateHourlyRate}>
+              <FormField id="hourlyRate" label="Quanto você cobra por hora" hint="Cada projeto pode ter um valor diferente.">
+                <MoneyInput id="hourlyRate" name="hourlyRate" defaultCents={user.hourlyRateCents || undefined} />
+              </FormField>
+            </ActionForm>
+            <Link href={`${APP_PATH}/calculadora`} className="w-fit text-sm font-semibold underline underline-offset-2">
+              Não sabe quanto cobrar? Use a calculadora de preço
+            </Link>
+          </div>
         </Section>
 
         <Section title="Sua marca" description="Sua logo no topo das cobranças, orçamentos e recibos. Deixa tudo com cara de empresa.">

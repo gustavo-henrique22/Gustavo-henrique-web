@@ -12,9 +12,11 @@ import { APP_PATH } from "@/lib/recebi/config";
 import { cn } from "@/lib/utils";
 import { useOpenCommandMenu } from "./command-menu";
 import { Logo } from "./logo";
+import { NotificationBell } from "./notification-bell";
 import { ACCOUNT_NAV, ADMIN_NAV, MAIN_NAV } from "./nav-items";
 import { InstallAppButton } from "./pwa";
 import { ThemeSwitcher } from "./theme";
+import { RunningTimerPill } from "./timer";
 
 type NavUser = { name: string; email: string; isAdmin: boolean; isPro: boolean; isDemo: boolean };
 
@@ -131,18 +133,22 @@ function SearchButton({ className }: { className?: string }) {
   );
 }
 
-/** Barra superior do painel no computador: busca rápida. */
-export function DesktopTopbar() {
+/** Barra superior do painel no computador: busca rápida e avisos. */
+type TimerInfo = { startedAt: string; label: string | null } | null;
+
+export function DesktopTopbar({ bell, timer }: { bell: React.ComponentProps<typeof NotificationBell>; timer: TimerInfo }) {
   return (
     <div className="sticky top-0 z-20 hidden border-b bg-background/80 backdrop-blur lg:block">
-      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-end gap-3 px-10">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-end gap-2 px-10">
+        {timer ? <RunningTimerPill startedAt={timer.startedAt} label={timer.label} /> : null}
         <SearchButton className="w-72" />
+        <NotificationBell {...bell} />
       </div>
     </div>
   );
 }
 
-export function MobileNav({ user }: { user: NavUser }) {
+export function MobileNav({ user, bell, timer }: { user: NavUser; bell: React.ComponentProps<typeof NotificationBell>; timer: TimerInfo }) {
   const [open, setOpen] = useState(false);
   const openSearch = useOpenCommandMenu();
   return (
@@ -151,9 +157,11 @@ export function MobileNav({ user }: { user: NavUser }) {
         <Logo className="text-base" markClassName="size-6" />
       </Link>
       <div className="flex items-center gap-1">
+        {timer ? <RunningTimerPill startedAt={timer.startedAt} label={null} /> : null}
         <Button variant="ghost" size="icon" aria-label="Buscar" onClick={openSearch}>
           <Search />
         </Button>
+        <NotificationBell {...bell} />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Abrir menu">

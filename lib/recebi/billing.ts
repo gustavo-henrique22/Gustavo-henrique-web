@@ -4,6 +4,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { payments, users, type User } from "@/db/schema";
+import { notify } from "./activity";
 import { APP_PATH, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS } from "./config";
 import { addMonthsToDate, todayISO } from "./dates";
 import { readEnv } from "./email";
@@ -93,6 +94,12 @@ export async function processPayment(
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return "invalido";
   const until = await extendPro(user, plan.months);
+  await notify(user.id, {
+    type: "pro",
+    title: "Seu plano Pro está ativo ✨",
+    body: `Pagamento confirmado. Válido até ${until.split("-").reverse().join("/")}.`,
+    href: "/recebi/painel/plano",
+  });
   await sendProActivatedEmail(user, until);
   return "ativado";
 }

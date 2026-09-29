@@ -227,10 +227,15 @@ export async function saveProject(_: ActionState, formData: FormData): Promise<A
   if (budgetCents === null || budgetCents < 0) return fail("Valor do projeto inválido.");
   if (dueDate && !isValidISODate(dueDate)) return fail("Prazo inválido.");
 
+  const rateInput = text(formData, "hourlyRate", 30);
+  const hourlyRateCents = rateInput ? parseMoney(rateInput) : 0;
+  if (hourlyRateCents === null || hourlyRateCents < 0) return fail("Valor da hora inválido.");
+
   const values = {
     name,
     status,
     budgetCents,
+    hourlyRateCents,
     dueDate: dueDate || null,
     clientId: await ownedClientId(user.id, text(formData, "clientId", 64)),
     notes: text(formData, "notes", 1000),

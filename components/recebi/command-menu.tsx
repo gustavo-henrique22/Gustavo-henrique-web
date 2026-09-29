@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePlus2, FileSignature, Minus, Monitor, Moon, Plus, Search, Sun, User } from "lucide-react";
+import { FilePlus2, FileSignature, FileUp, Minus, Monitor, Moon, Plus, Search, Sun, Timer, User, Zap } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
@@ -85,6 +85,15 @@ export function CommandMenuProvider({
             </CommandItem>
             <CommandItem onSelect={() => go(`${APP_PATH}/cobrancas/nova`)}>
               <FilePlus2 /> Nova cobrança
+            </CommandItem>
+            <CommandItem onSelect={() => go(`${APP_PATH}/cobrancas?novo=rapida`)}>
+              <Zap /> Cobrança rápida (link de Pix)
+            </CommandItem>
+            <CommandItem onSelect={() => go(`${APP_PATH}/horas`)}>
+              <Timer /> Iniciar cronômetro
+            </CommandItem>
+            <CommandItem onSelect={() => go(`${APP_PATH}/lancamentos/importar`)}>
+              <FileUp /> Importar extrato do banco
             </CommandItem>
           </CommandGroup>
           {query.trim().length > 1 ? (

@@ -22,6 +22,7 @@ const dates = await vite.ssrLoadModule("/lib/recebi/dates.ts");
 const pix = await vite.ssrLoadModule("/lib/recebi/pix.ts");
 const crypto = await vite.ssrLoadModule("/lib/recebi/crypto.ts");
 const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
+const statement = await vite.ssrLoadModule("/lib/recebi/statement.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -123,4 +124,104 @@ test("writes money amounts in words for receipts", () => {
   assert.equal(extenso.moneyToWords(100000000), "um milhão de reais");
   assert.equal(extenso.moneyToWords(250000000), "dois milhões e quinhentos mil reais");
   assert.equal(extenso.moneyToWords(100010000), "um milhão e cem reais");
+});
+
+test("formats timestamps in São Paulo time and relative to now", () => {
+  assert.equal(dates.formatDateTime("2026-09-28 17:20:00"), "28/09/2026 às 14:20");
+  assert.equal(dates.formatDateTime("2026-09-28T17:20:00.000Z"), "28/09/2026 às 14:20");
+  const now = new Date("2026-09-28T18:00:00Z");
+  assert.equal(dates.formatRelative("2026-09-28 17:59:40", now), "agora");
+  assert.equal(dates.formatRelative("2026-09-28 17:20:00", now), "há 40 min");
+  assert.equal(dates.formatRelative("2026-09-28 12:00:00", now), "há 6 h");
+  assert.equal(dates.formatRelative("2026-09-27 12:00:00", now), "ontem");
+  assert.equal(dates.formatRelative("2026-09-24 12:00:00", now), "há 4 dias");
+});
+
+test("reads OFX statements (SGML, sem fechamento de tags)", () => {
+  const ofx = `OFXHEADER:100
+DATA:OFXSGML
+CHARSET:1252
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKACCTFROM><BANKID>0260<ACCTID>123456-7</BANKACCTFROM>
+<BANKTRANLIST><DTSTART>20260901
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260905120000[-3:BRT]<TRNAMT>1800.00<FITID>abc1<MEMO>Transferência recebida - Studio Lima
+</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260906<TRNAMT>-23,90<FITID>abc2<MEMO>UBER *TRIP HELP.UBER.COM
+</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260906<TRNAMT>-23.90<FITID>abc2<MEMO>UBER *TRIP HELP.UBER.COM
+</STMTTRN>
+<STMTTRN><TRNTYPE>OTHER<DTPOSTED>20260907<TRNAMT>0.00<FITID>abc3<MEMO>Saldo
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+  const result = statement.parseStatement(ofx, "extrato.ofx");
+  assert.equal(result.format, "ofx");
+  assert.equal(result.rows.length, 3);
+  assert.deepEqual(result.rows[0], {
+    externalId: "ofx:1234567:abc1",
+    date: "2026-09-05",
+    description: "Transferência recebida - Studio Lima",
+    amountCents: 180000,
+  });
+  assert.equal(result.rows[1].amountCents, -2390);
+  assert.notEqual(result.rows[1].externalId, result.rows[2].externalId);
+});
+
+test("reads CSV statements from different banks", () => {
+  const nubank =
+    "Data,Valor,Identificador,Descrição\n05/09/2026,1500.00,id-1,Transferência recebida pelo Pix - CAFE AROMA\n06/09/2026,-124.00,id-2,Compra no débito - ADOBE\n";
+  const a = statement.parseStatement(nubank, "nubank.csv");
+  assert.equal(a.format, "csv");
+  assert.deepEqual(
+    a.rows.map((r) => [r.externalId, r.date, r.amountCents]),
+    [
+      ["csv:id-1", "2026-09-05", 150000],
+      ["csv:id-2", "2026-09-06", -12400],
+    ],
+  );
+
+  const inter =
+    "Extrato Conta Corrente\nPeríodo: 01/09/2026 a 30/09/2026\n\nData Lançamento;Histórico;Descrição;Valor;Saldo\n10/09/2026;Pix enviado;Coworking Central;-450,00;1.050,00\n10/09/2026;Pix enviado;Coworking Central;-450,00;600,00\n12/09/2026;Saldo do dia;;0,00;600,00\n";
+  const b = statement.parseStatement(inter, "inter.csv");
+  assert.equal(b.rows.length, 2);
+  assert.equal(b.rows[0].description, "Pix enviado · Coworking Central");
+  assert.equal(b.rows[0].amountCents, -45000);
+  assert.notEqual(b.rows[0].externalId, b.rows[1].externalId);
+
+  const split = "data;descricao;credito;debito\n2026-09-01;Tarifa pacote;;19,90\n2026-09-02;Pix recebido;2.000,00;\n";
+  const c = statement.parseStatement(split, "banco.csv");
+  assert.deepEqual(
+    c.rows.map((r) => r.amountCents),
+    [-1990, 200000],
+  );
+
+  assert.ok("error" in statement.parseStatement("nada,aqui\nfoo,bar\n", "x.csv"));
+});
+
+test("parses statement amounts and dates", () => {
+  assert.equal(statement.parseStatementAmount("R$ -1.234,56"), -123456);
+  assert.equal(statement.parseStatementAmount("(35,90)"), -3590);
+  assert.equal(statement.parseStatementAmount("35,90-"), -3590);
+  assert.equal(statement.parseStatementAmount("1,234.56"), 123456);
+  assert.equal(statement.parseStatementAmount("1.234"), 123400);
+  assert.equal(statement.parseStatementAmount("abc"), null);
+  assert.equal(statement.parseStatementDate("31/12/26"), "2026-12-31");
+  assert.equal(statement.parseStatementDate("2026-02-30"), null);
+  assert.equal(statement.parseStatementDate("20260915093000"), "2026-09-15");
+});
+
+test("suggests categories, clients and rule keywords", () => {
+  assert.equal(statement.suggestCategory("UBER *TRIP", "despesa").category, "Transporte");
+  assert.equal(statement.suggestCategory("Pagamento Adobe Systems", "despesa").category, "Software e assinaturas");
+  assert.equal(statement.suggestCategory("MERCADO PAGO *LOJA", "despesa").category, "Outras despesas");
+  assert.equal(statement.suggestCategory("DAS - Simples Nacional", "despesa").category, "Impostos (DAS, INSS)");
+  assert.equal(statement.suggestCategory("Pix recebido de Fulano", "receita").category, "Projeto");
+  const rules = [{ pattern: "uber", type: "despesa", category: "Terceirizados" }];
+  assert.deepEqual(statement.suggestCategory("Úber trip", "despesa", rules), { category: "Terceirizados", byRule: true });
+  const clients = [
+    { id: "1", name: "Studio" },
+    { id: "2", name: "Studio Lima" },
+  ];
+  assert.equal(statement.matchClient("PIX RECEBIDO STUDIO LIMA LTDA", clients).id, "2");
+  assert.equal(statement.guessKeyword("Compra no débito - UBER *TRIP 1234"), "uber");
+  assert.equal(statement.guessKeyword("PIX 123"), null);
 });

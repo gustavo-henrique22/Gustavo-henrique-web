@@ -11,6 +11,7 @@ import { FormDialog } from "@/components/recebi/form-dialog";
 import { InvoiceDocument } from "@/components/recebi/document-view";
 import { invoiceDisplayStatus } from "@/components/recebi/invoice-status";
 import { ShareLink } from "@/components/recebi/share-link";
+import { DocumentTimeline } from "@/components/recebi/timeline";
 import {
   deleteInvoice,
   duplicateInvoice,
@@ -19,6 +20,7 @@ import {
   setInvoiceStatus,
   undoInvoicePayment,
 } from "@/lib/recebi/actions/invoices";
+import { listEvents } from "@/lib/recebi/activity";
 import { requireUser } from "@/lib/recebi/auth";
 import { INCOME_CATEGORIES } from "@/lib/recebi/categories";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
@@ -45,6 +47,7 @@ export default async function InvoicePage({
   const data = await getInvoice(user.id, id);
   if (!data) notFound();
   const { invoice, client, items } = data;
+  const events = await listEvents(user.id, invoice.id);
 
   const number = String(invoice.number).padStart(4, "0");
   const link = `${await siteOrigin()}${BASE_PATH}/c/${invoice.publicToken}`;
@@ -171,6 +174,8 @@ export default async function InvoicePage({
               </ActionButton>
             </section>
           ) : null}
+
+          <DocumentTimeline events={events} viewCount={invoice.viewCount} viewedAt={invoice.viewedAt} />
 
           <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-xs">
             <h2 className="mb-1 font-bold">Mais ações</h2>

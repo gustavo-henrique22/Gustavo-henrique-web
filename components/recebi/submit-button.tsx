@@ -13,7 +13,7 @@ export function SubmitButton({
   const status = useFormStatus();
   const pending = pendingProp ?? status.pending;
   return (
-    <Button type="submit" disabled={pending || props.disabled} aria-busy={pending} {...props}>
+    <Button type="submit" {...props} disabled={pending || props.disabled} aria-busy={pending}>
       {pending ? (
         <>
           <Spinner /> {pendingLabel}

@@ -156,3 +156,13 @@ export async function updateReminders(_: ActionState, formData: FormData): Promi
   refresh();
   return success(enabled ? "Lembretes automáticos ativados." : "Lembretes automáticos desativados.");
 }
+
+export async function updateHourlyRate(_: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const input = text(formData, "hourlyRate", 30);
+  const cents = input ? parseMoney(input) : 0;
+  if (cents === null || cents < 0 || cents > 10_000_000) return fail("Valor da hora inválido.");
+  await getDb().update(users).set({ hourlyRateCents: cents }).where(eq(users.id, user.id));
+  refresh();
+  return success("Valor da hora atualizado.");
+}

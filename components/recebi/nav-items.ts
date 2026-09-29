@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Timer,
   Users,
 } from "lucide-react";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -20,6 +21,7 @@ export const MAIN_NAV = [
   { href: `${APP_PATH}/cobrancas`, label: "Cobranças", icon: ReceiptText },
   { href: `${APP_PATH}/clientes`, label: "Clientes", icon: Users },
   { href: `${APP_PATH}/projetos`, label: "Projetos", icon: FolderKanban },
+  { href: `${APP_PATH}/horas`, label: "Horas", icon: Timer },
   { href: `${APP_PATH}/relatorios`, label: "Relatórios", icon: ChartColumn },
   { href: `${APP_PATH}/calculadora`, label: "Calculadora", icon: Calculator },
 ];

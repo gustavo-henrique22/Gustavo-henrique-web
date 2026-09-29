@@ -4,10 +4,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "@/components/recebi/invoice-status";
 import { PageHeader } from "@/components/recebi/page-header";
+import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { APP_PATH, FREE_LIMITS } from "@/lib/recebi/config";
-import { countInvoicesInMonth, invoiceStats, listInvoices } from "@/lib/recebi/data";
+import { countInvoicesInMonth, invoiceStats, listClients, listInvoices } from "@/lib/recebi/data";
 import { currentMonth, formatDate } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
 import { cn } from "@/lib/utils";
@@ -23,9 +24,10 @@ const TABS = [
   { value: "cancelada", label: "Canceladas" },
 ];
 
-export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ status?: string; novo?: string }> }) {
   const user = await requireUser();
-  const { status } = await searchParams;
+  const { status, novo } = await searchParams;
+  const clientOptions = await listClients(user.id);
   const active = TABS.find((t) => t.value === status)?.value;
   const [rows, stats, usedThisMonth] = await Promise.all([
     listInvoices(user.id, active),
@@ -44,11 +46,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             : `${usedThisMonth} de ${FREE_LIMITS.invoicesPerMonth} cobranças usadas este mês no plano Grátis.`
         }
         actions={
-          <Button asChild>
-            <Link href={`${APP_PATH}/cobrancas/nova`}>
-              <Plus /> Nova cobrança
-            </Link>
-          </Button>
+          <>
+            <QuickChargeButton clients={clientOptions} defaultOpen={novo === "rapida"} />
+            <Button asChild>
+              <Link href={`${APP_PATH}/cobrancas/nova`}>
+                <Plus /> Nova cobrança
+              </Link>
+            </Button>
+          </>
         }
       />
 

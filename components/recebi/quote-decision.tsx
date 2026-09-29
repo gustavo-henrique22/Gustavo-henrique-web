@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle2, ThumbsDown } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ThumbsDown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { approveQuoteByClient, rejectQuoteByClient } from "@/lib/recebi/actions/quotes";
 import { formatMoney } from "@/lib/recebi/money";
@@ -39,22 +40,44 @@ export function QuoteDecision({ token, totalCents, ownerName }: { token: string;
       </p>
 
       {!rejecting ? (
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <form onSubmit={approve.onSubmit} className="flex-1">
-            <input type="hidden" name="token" value={token} />
+        <form onSubmit={approve.onSubmit} className="mt-5 grid gap-3">
+          <input type="hidden" name="token" value={token} />
+          <div className="grid gap-1.5">
+            <label htmlFor="acceptedName" className="text-sm font-medium">
+              Seu nome completo
+            </label>
+            <Input
+              id="acceptedName"
+              name="acceptedName"
+              required
+              minLength={3}
+              maxLength={120}
+              autoComplete="name"
+              placeholder="Como vai constar no aceite"
+            />
+          </div>
+          <label className="flex items-start gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" name="accept" required className="mt-0.5 size-4 accent-[var(--primary)]" />
+            <span>Li e aceito os itens, valores e condições deste orçamento.</span>
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <SubmitButton
               pending={approve.pending}
               size="lg"
-              className="w-full bg-income text-white hover:bg-income/90"
+              className="flex-1 bg-income text-white hover:bg-income/90"
               pendingLabel="Aprovando…"
             >
               <CheckCircle2 /> Aprovar orçamento
             </SubmitButton>
-          </form>
-          <Button type="button" variant="outline" size="lg" onClick={() => setRejecting(true)}>
-            <ThumbsDown /> Recusar
-          </Button>
-        </div>
+            <Button type="button" variant="outline" size="lg" onClick={() => setRejecting(true)}>
+              <ThumbsDown /> Recusar
+            </Button>
+          </div>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck className="size-3.5 shrink-0" /> Registramos seu nome, a data, a hora e o endereço de rede como comprovante do
+            aceite.
+          </p>
+        </form>
       ) : (
         <form onSubmit={reject.onSubmit} className="mt-5 grid gap-3">
           <input type="hidden" name="token" value={token} />
