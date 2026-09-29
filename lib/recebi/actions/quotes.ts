@@ -4,7 +4,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { clients, projects, quoteItems, quotes } from "@/db/schema";
+import { clients, projects, quoteItems, quoteRequests, quotes } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
 import { hasPro, requireUser } from "../auth";
 import { APP_PATH, BASE_PATH, FREE_LIMITS } from "../config";
@@ -127,6 +127,15 @@ export async function saveQuote(_: ActionState, formData: FormData): Promise<Act
   }
   await insertQuoteItems(quoteId, items);
   if (!previousStatus) await logEvent(user.id, "orcamento", quoteId, "criado");
+  const requestId = text(formData, "requestId", 64);
+  if (!id && requestId) {
+    const answered = await db
+      .update(quoteRequests)
+      .set({ status: "respondido" })
+      .where(and(eq(quoteRequests.id, requestId), eq(quoteRequests.userId, user.id)))
+      .returning({ name: quoteRequests.name });
+    if (answered.length > 0) await logEvent(user.id, "orcamento", quoteId, "pedido-site", `Pedido de ${answered[0].name}`);
+  }
   const nowSent = intent === "enviar" || previousStatus === "recusado" || previousStatus === "enviado";
   if (nowSent && previousStatus !== "enviado") await logEvent(user.id, "orcamento", quoteId, "enviado");
 

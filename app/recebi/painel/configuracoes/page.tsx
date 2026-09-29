@@ -17,6 +17,7 @@ import {
   updateHourlyRate,
   updatePaymentSettings,
   updateProfile,
+  updateMonthlySummary,
   updateReminders,
   uploadLogo,
 } from "@/lib/recebi/actions/account";
@@ -188,8 +189,8 @@ export default async function SettingsPage() {
         </Section>
 
         <Section
-          title="Lembretes automáticos"
-          description="O Recebi avisa seus clientes por e-mail 3 dias antes, no dia e 3 dias depois do vencimento das cobranças."
+          title="Avisos por e-mail"
+          description="Lembretes de vencimento para seus clientes (3 dias antes, no dia e 3 dias depois) e um resumo do mês para você."
         >
           {!hasPro(user) ? (
             <ProNotice text="Lembretes automáticos de cobrança fazem parte do plano Pro." />
@@ -213,6 +214,24 @@ export default async function SettingsPage() {
               </label>
             </ActionForm>
           )}
+          <div className="mt-4">
+            <ActionForm action={updateMonthlySummary}>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="monthlySummary"
+                  defaultChecked={user.monthlySummary}
+                  className="mt-0.5 size-4 accent-[var(--primary)]"
+                />
+                <span>
+                  <span className="font-medium">Receber o resumo do mês</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Todo início de mês: quanto entrou, quanto saiu, seu melhor cliente e o que falta receber.
+                  </span>
+                </span>
+              </label>
+            </ActionForm>
+          </div>
         </Section>
 
         <Section title="Aparência e app" description="Escolha o tema e instale o Recebi como aplicativo no celular ou no computador.">

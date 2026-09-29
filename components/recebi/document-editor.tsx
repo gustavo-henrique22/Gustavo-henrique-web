@@ -32,6 +32,8 @@ export type DocumentDraft = {
   discountCents: number;
   notes: string;
   items: { description: string; quantity: number; unitPriceCents: number }[];
+  /** Pedido da página pública que originou o orçamento. */
+  requestId?: string;
 };
 
 const COPY = {
@@ -102,6 +104,7 @@ export function DocumentEditor({
   return (
     <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {draft.id ? <input type="hidden" name="id" value={draft.id} /> : null}
+      {draft.requestId ? <input type="hidden" name="requestId" value={draft.requestId} /> : null}
 
       <div className="grid content-start gap-6">
         <section className="grid gap-4 rounded-2xl border bg-card p-5 shadow-xs sm:grid-cols-2">

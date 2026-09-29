@@ -4,6 +4,7 @@ import {
   ChartColumn,
   FileSignature,
   FolderKanban,
+  Globe,
   LayoutDashboard,
   ReceiptText,
   Settings,
@@ -24,6 +25,7 @@ export const MAIN_NAV = [
   { href: `${APP_PATH}/horas`, label: "Horas", icon: Timer },
   { href: `${APP_PATH}/relatorios`, label: "Relatórios", icon: ChartColumn },
   { href: `${APP_PATH}/calculadora`, label: "Calculadora", icon: Calculator },
+  { href: `${APP_PATH}/pagina`, label: "Minha página", icon: Globe },
 ];
 
 export const ACCOUNT_NAV = [

@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, CheckCircle2, Copy, FileCheck2, Pencil, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Copy, FileCheck2, Pencil, Repeat, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { ConfirmAction } from "@/components/recebi/confirm-action";
 import { FormField, Select } from "@/components/recebi/fields";
 import { FormDialog } from "@/components/recebi/form-dialog";
 import { InvoiceDocument } from "@/components/recebi/document-view";
+import { RecurringDialog } from "@/components/recebi/recurring-dialog";
 import { invoiceDisplayStatus } from "@/components/recebi/invoice-status";
 import { ShareLink } from "@/components/recebi/share-link";
 import { DocumentTimeline } from "@/components/recebi/timeline";
@@ -21,10 +22,10 @@ import {
   undoInvoicePayment,
 } from "@/lib/recebi/actions/invoices";
 import { listEvents } from "@/lib/recebi/activity";
-import { requireUser } from "@/lib/recebi/auth";
+import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { INCOME_CATEGORIES } from "@/lib/recebi/categories";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
-import { getInvoice } from "@/lib/recebi/data";
+import { getInvoice, listClients, listProjects } from "@/lib/recebi/data";
 import { emailEnabled } from "@/lib/recebi/email";
 import { logoUrlFor } from "@/lib/recebi/files";
 import { formatDate, todayISO } from "@/lib/recebi/dates";
@@ -48,6 +49,8 @@ export default async function InvoicePage({
   if (!data) notFound();
   const { invoice, client, items } = data;
   const events = await listEvents(user.id, invoice.id);
+  const canRepeat = hasPro(user) && !!invoice.clientId && invoice.status !== "cancelada";
+  const [clientOptions, projectRows] = canRepeat ? await Promise.all([listClients(user.id), listProjects(user.id)]) : [[], []];
 
   const number = String(invoice.number).padStart(4, "0");
   const link = `${await siteOrigin()}${BASE_PATH}/c/${invoice.publicToken}`;
@@ -189,6 +192,24 @@ export default async function InvoicePage({
             <ActionButton action={duplicateInvoice} fields={{ id: invoice.id }} variant="outline" className="justify-start">
               <Copy /> Duplicar
             </ActionButton>
+            {canRepeat ? (
+              <RecurringDialog
+                clients={clientOptions.map((c) => ({ id: c.id, name: c.name }))}
+                projects={projectRows.map((r) => ({ id: r.project.id, name: r.project.name }))}
+                preset={{
+                  clientId: invoice.clientId,
+                  projectId: invoice.projectId,
+                  description: items.length === 1 ? items[0].description : `Serviço mensal — ${ownerName}`,
+                  amountCents: invoice.totalCents,
+                  dayOfMonth: Number(invoice.issueDate.slice(8, 10)),
+                }}
+                trigger={
+                  <Button variant="outline" className="justify-start">
+                    <Repeat /> Repetir todo mês
+                  </Button>
+                }
+              />
+            ) : null}
             {invoice.status === "enviada" ? (
               <ConfirmAction
                 action={setInvoiceStatus}

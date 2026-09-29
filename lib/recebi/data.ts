@@ -9,7 +9,10 @@ import {
   invoices,
   projects,
   quoteItems,
+  quoteRequests,
   quotes,
+  recurringInvoices,
+  services,
   timeEntries,
   transactions,
   users,
@@ -501,4 +504,49 @@ export async function unbilledHours(userId: string) {
 
 export async function listCategoryRules(userId: string) {
   return getDb().select().from(categoryRules).where(eq(categoryRules.userId, userId)).orderBy(asc(categoryRules.pattern));
+}
+
+export async function listRecurring(userId: string) {
+  return getDb()
+    .select({ recurring: recurringInvoices, clientName: clients.name, clientEmail: clients.email, lastInvoiceNumber: invoices.number })
+    .from(recurringInvoices)
+    .leftJoin(clients, eq(clients.id, recurringInvoices.clientId))
+    .leftJoin(invoices, eq(invoices.id, recurringInvoices.lastInvoiceId))
+    .where(eq(recurringInvoices.userId, userId))
+    .orderBy(desc(recurringInvoices.active), asc(recurringInvoices.nextDate));
+}
+
+export async function listServices(userId: string) {
+  return getDb().select().from(services).where(eq(services.userId, userId)).orderBy(asc(services.position), asc(services.createdAt));
+}
+
+export async function listQuoteRequests(userId: string) {
+  return getDb()
+    .select({ request: quoteRequests, serviceName: services.name })
+    .from(quoteRequests)
+    .leftJoin(services, eq(services.id, quoteRequests.serviceId))
+    .where(eq(quoteRequests.userId, userId))
+    .orderBy(desc(quoteRequests.createdAt))
+    .limit(100);
+}
+
+export async function getQuoteRequest(userId: string, id: string) {
+  const [row] = await getDb()
+    .select({ request: quoteRequests, service: services })
+    .from(quoteRequests)
+    .leftJoin(services, eq(services.id, quoteRequests.serviceId))
+    .where(and(eq(quoteRequests.userId, userId), eq(quoteRequests.id, id)))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Página pública: só aparece se a pessoa publicou. */
+export async function getPublicProfile(slug: string) {
+  const [owner] = await getDb()
+    .select()
+    .from(users)
+    .where(and(eq(users.slug, slug), eq(users.publicProfile, true)))
+    .limit(1);
+  if (!owner) return null;
+  return { owner, services: await listServices(owner.id) };
 }

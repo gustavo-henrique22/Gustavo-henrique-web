@@ -23,6 +23,7 @@ const pix = await vite.ssrLoadModule("/lib/recebi/pix.ts");
 const crypto = await vite.ssrLoadModule("/lib/recebi/crypto.ts");
 const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
 const statement = await vite.ssrLoadModule("/lib/recebi/statement.ts");
+const slug = await vite.ssrLoadModule("/lib/recebi/slug.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -224,4 +225,24 @@ test("suggests categories, clients and rule keywords", () => {
   assert.equal(statement.matchClient("PIX RECEBIDO STUDIO LIMA LTDA", clients).id, "2");
   assert.equal(statement.guessKeyword("Compra no débito - UBER *TRIP 1234"), "uber");
   assert.equal(statement.guessKeyword("PIX 123"), null);
+});
+
+test("computes monthly recurring dates", () => {
+  assert.equal(dates.dateInMonth("2026-02", 31), "2026-02-28");
+  assert.equal(dates.dateInMonth("2028-02", 30), "2028-02-29");
+  assert.equal(dates.firstMonthlyDate("2026-09-29", 5), "2026-10-05");
+  assert.equal(dates.firstMonthlyDate("2026-09-05", 5), "2026-09-05");
+  assert.equal(dates.nextMonthlyDate("2026-01-31", 31), "2026-02-28");
+  assert.equal(dates.nextMonthlyDate("2026-02-28", 31), "2026-03-31");
+  assert.equal(dates.nextMonthlyDate("2026-12-10", 10), "2027-01-10");
+});
+
+test("builds public page addresses", () => {
+  assert.equal(slug.slugify("Marina Costa Design"), "marina-costa-design");
+  assert.equal(slug.slugify("  João & Cia. — Fotografia! "), "joao-cia-fotografia");
+  assert.equal(slug.isValidSlug("marina-costa"), true);
+  assert.equal(slug.isValidSlug("ab"), false);
+  assert.equal(slug.isValidSlug("admin"), false);
+  assert.equal(slug.isValidSlug("-marina"), false);
+  assert.equal(slug.isValidSlug("mar--ina"), false);
 });

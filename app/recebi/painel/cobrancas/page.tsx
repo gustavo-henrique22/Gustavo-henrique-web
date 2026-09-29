@@ -1,4 +1,4 @@
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Repeat } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,11 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         }
         actions={
           <>
+            <Button variant="ghost" asChild>
+              <Link href={`${APP_PATH}/cobrancas/recorrentes`}>
+                <Repeat /> Recorrentes
+              </Link>
+            </Button>
             <QuickChargeButton clients={clientOptions} defaultOpen={novo === "rapida"} />
             <Button asChild>
               <Link href={`${APP_PATH}/cobrancas/nova`}>

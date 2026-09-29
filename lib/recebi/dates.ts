@@ -67,6 +67,24 @@ export function addMonthsToDate(date: string, amount: number): string {
   return `${month}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
 }
 
+/** Dia `day` do mês "YYYY-MM", limitado ao último dia (dia 31 em fevereiro → 28/29). */
+export function dateInMonth(month: string, day: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${month}-${String(Math.min(Math.max(day, 1), lastDay)).padStart(2, "0")}`;
+}
+
+/** Primeira data com esse dia do mês a partir de `from` (inclusive). */
+export function firstMonthlyDate(from: string, day: number): string {
+  const candidate = dateInMonth(from.slice(0, 7), day);
+  return candidate >= from ? candidate : dateInMonth(addMonths(from.slice(0, 7), 1), day);
+}
+
+/** A mesma data de cobrança no mês seguinte. */
+export function nextMonthlyDate(date: string, day: number): string {
+  return dateInMonth(addMonths(date.slice(0, 7), 1), day);
+}
+
 export function monthBounds(month: string): { start: string; end: string } {
   const [y, m] = month.split("-").map(Number);
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();

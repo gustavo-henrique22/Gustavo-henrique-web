@@ -157,6 +157,14 @@ export async function updateReminders(_: ActionState, formData: FormData): Promi
   return success(enabled ? "Lembretes automáticos ativados." : "Lembretes automáticos desativados.");
 }
 
+export async function updateMonthlySummary(_: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const enabled = text(formData, "monthlySummary") === "on";
+  await getDb().update(users).set({ monthlySummary: enabled }).where(eq(users.id, user.id));
+  refresh();
+  return success(enabled ? "Você vai receber o resumo todo mês." : "Resumo do mês desligado.");
+}
+
 export async function updateHourlyRate(_: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const input = text(formData, "hourlyRate", 30);
