@@ -21,6 +21,7 @@ const money = await vite.ssrLoadModule("/lib/recebi/money.ts");
 const dates = await vite.ssrLoadModule("/lib/recebi/dates.ts");
 const pix = await vite.ssrLoadModule("/lib/recebi/pix.ts");
 const crypto = await vite.ssrLoadModule("/lib/recebi/crypto.ts");
+const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -106,8 +107,6 @@ test("hashes and verifies passwords", async () => {
   assert.equal(await crypto.verifyPassword("outra-senha", hash), false);
   assert.notEqual(await crypto.hashPassword("senha-segura-123"), hash);
 });
-
-const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
 
 test("writes money amounts in words for receipts", () => {
   assert.equal(extenso.moneyToWords(100), "um real");
