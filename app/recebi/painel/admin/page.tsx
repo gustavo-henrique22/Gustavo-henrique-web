@@ -11,6 +11,7 @@ import { StatCard } from "@/components/recebi/stat-card";
 import { getDb } from "@/db";
 import { invoices, payments, transactions, users } from "@/db/schema";
 import { setUserPlan } from "@/lib/recebi/actions/admin";
+import { aiEnabled } from "@/lib/recebi/ai";
 import { hasPro, requireAdmin } from "@/lib/recebi/auth";
 import { APP_PATH, PRO_PRICE_CENTS } from "@/lib/recebi/config";
 import { addDays, formatDate, todayISO } from "@/lib/recebi/dates";
@@ -68,6 +69,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       how: "MERCADOPAGO_ACCESS_TOKEN (e MERCADOPAGO_WEBHOOK_SECRET)",
     },
     { name: "Login com Google", on: googleEnabled(), how: "GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET" },
+    { name: "Assistente e orçamentos com IA (Claude)", on: aiEnabled(), how: "ANTHROPIC_API_KEY (crie em console.anthropic.com)" },
     { name: "Comprovantes e logos (R2)", on: filesEnabled(), how: "binding FILES em .openai/hosting.json" },
     {
       name: "Lembretes diários de cobrança",

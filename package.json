@@ -16,6 +16,7 @@
     "db:migrate:local": "bash scripts/db-migrate-local.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
@@ -62,5 +63,5 @@
     "wrangler": "4.92.0"
   },
   "type": "module",
-  "displayName": "Portf\u00f3lio de Gustavo Vilarim"
+  "displayName": "Portfólio de Gustavo Vilarim"
 }

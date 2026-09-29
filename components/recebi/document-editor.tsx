@@ -2,16 +2,18 @@
 
 import { Plus, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { SuggestedQuote } from "@/lib/recebi/actions/ai";
 import { saveInvoice } from "@/lib/recebi/actions/invoices";
 import { saveQuote } from "@/lib/recebi/actions/quotes";
 import { APP_PATH } from "@/lib/recebi/config";
 import { centsToInput, formatMoney, parseMoney } from "@/lib/recebi/money";
 import { FormError } from "./form-error";
+import { QuoteAiButton } from "./quote-ai";
 import { SubmitButton } from "./submit-button";
 import { useActionForm } from "./use-action-form";
 
@@ -64,11 +66,14 @@ export function DocumentEditor({
   draft,
   clients,
   projects,
+  ai,
 }: {
   kind: "invoice" | "quote";
   draft: DocumentDraft;
   clients: Option[];
   projects: Option[];
+  /** Presente quando o assistente com IA está ativo: mostra "Montar com IA". */
+  ai?: { brief?: string } | null;
 }) {
   const copy = COPY[kind];
   const { state, pending, onSubmit } = useActionForm(kind === "invoice" ? saveInvoice : saveQuote);
@@ -100,6 +105,19 @@ export function DocumentEditor({
     setItems((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
 
   const isDraft = !draft.status || draft.status === "rascunho";
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  function applySuggestion(result: SuggestedQuote) {
+    setItems(
+      result.items.map((item) => ({
+        key: nextKey++,
+        description: item.description,
+        quantity: String(item.quantity).replace(".", ","),
+        price: item.unitPriceCents ? centsToInput(item.unitPriceCents) : "",
+      })),
+    );
+    if (notesRef.current && !notesRef.current.value.trim()) notesRef.current.value = result.notes;
+  }
 
   return (
     <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -176,7 +194,10 @@ export function DocumentEditor({
         </section>
 
         <section className="rounded-2xl border bg-card p-5 shadow-xs">
-          <h2 className="mb-4 font-bold">Itens</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-bold">Itens</h2>
+            {ai ? <QuoteAiButton defaultBrief={ai.brief} onApply={applySuggestion} /> : null}
+          </div>
           <div className="hidden grid-cols-[1fr_80px_130px_110px_36px] gap-2 px-1 pb-2 text-xs font-medium text-muted-foreground sm:grid">
             <span>Descrição</span>
             <span>Qtd.</span>
@@ -251,7 +272,15 @@ export function DocumentEditor({
           <Label htmlFor="notes">
             {copy.notesLabel} <span className="font-normal text-muted-foreground">(opcional)</span>
           </Label>
-          <Textarea id="notes" name="notes" rows={3} defaultValue={draft.notes} maxLength={2000} placeholder={copy.notesPlaceholder} />
+          <Textarea
+            ref={notesRef}
+            id="notes"
+            name="notes"
+            rows={3}
+            defaultValue={draft.notes}
+            maxLength={2000}
+            placeholder={copy.notesPlaceholder}
+          />
         </section>
       </div>
 

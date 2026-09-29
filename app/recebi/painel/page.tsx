@@ -10,6 +10,7 @@ import {
   PiggyBank,
   Target,
   Wallet,
+  WandSparkles,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import { ForecastCard } from "@/components/recebi/forecast-card";
 import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
+import { aiEnabled } from "@/lib/recebi/ai";
 import { requireUser } from "@/lib/recebi/auth";
 import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -117,6 +119,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Button>
         <QuickChargeButton clients={clientsList} />
       </div>
+
+      {anyData && aiEnabled() ? (
+        <form
+          action={`${APP_PATH}/assistente`}
+          method="get"
+          className="mb-6 flex items-center gap-2 rounded-2xl border bg-card p-1.5 pl-4 shadow-xs focus-within:ring-2 focus-within:ring-[#c9ff3c]"
+        >
+          <WandSparkles className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <label htmlFor="ask" className="sr-only">
+            Pergunte ao assistente
+          </label>
+          <input
+            id="ask"
+            name="q"
+            required
+            maxLength={500}
+            autoComplete="off"
+            placeholder="Pergunte ao assistente: “quanto posso gastar este mês?”"
+            className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <Button type="submit" size="sm">
+            Perguntar
+          </Button>
+        </form>
+      ) : null}
 
       {!anyData ? <Onboarding hasPix={!!user.pixKey} hasClient={clientCount > 0} welcome={params["bem-vindo"] === "1"} /> : null}
 

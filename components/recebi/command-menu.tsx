@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePlus2, FileSignature, FileUp, Minus, Monitor, Moon, Plus, Search, Sun, Timer, User, Zap } from "lucide-react";
+import { FilePlus2, FileSignature, FileUp, WandSparkles, Minus, Monitor, Moon, Plus, Search, Sun, Timer, User, Zap } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
@@ -91,6 +91,12 @@ export function CommandMenuProvider({
             </CommandItem>
             <CommandItem onSelect={() => go(`${APP_PATH}/horas`)}>
               <Timer /> Iniciar cronômetro
+            </CommandItem>
+            <CommandItem
+              value={`assistente perguntar ia ${query}`}
+              onSelect={() => go(`${APP_PATH}/assistente${query.trim().length > 3 ? `?q=${encodeURIComponent(query.trim())}` : ""}`)}
+            >
+              <WandSparkles /> {query.trim().length > 3 ? `Perguntar ao assistente: “${query.trim()}”` : "Perguntar ao assistente"}
             </CommandItem>
             <CommandItem onSelect={() => go(`${APP_PATH}/lancamentos/importar`)}>
               <FileUp /> Importar extrato do banco

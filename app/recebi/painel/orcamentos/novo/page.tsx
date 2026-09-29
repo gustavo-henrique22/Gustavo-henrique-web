@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentEditor } from "@/components/recebi/document-editor";
 import { PageHeader } from "@/components/recebi/page-header";
+import { aiEnabled } from "@/lib/recebi/ai";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { getQuoteRequest, listClients, listProjects } from "@/lib/recebi/data";
@@ -62,6 +63,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
           items,
           requestId: request?.request.id,
         }}
+        ai={aiEnabled() ? { brief: request?.request.message } : null}
       />
     </>
   );

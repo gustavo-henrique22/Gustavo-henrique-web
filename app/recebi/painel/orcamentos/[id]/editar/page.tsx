@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DocumentEditor } from "@/components/recebi/document-editor";
 import { PageHeader } from "@/components/recebi/page-header";
+import { aiEnabled } from "@/lib/recebi/ai";
 import { requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { getQuote, listClients, listProjects } from "@/lib/recebi/data";
@@ -48,6 +49,7 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
           notes: quote.notes,
           items: items.map((i) => ({ description: i.description, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
         }}
+        ai={aiEnabled() && quote.status !== "aprovado" ? {} : null}
       />
     </>
   );
