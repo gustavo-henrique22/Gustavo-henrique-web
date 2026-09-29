@@ -43,8 +43,8 @@ export function InvoiceDocument({
         </div>
       </header>
 
-      <div className="mt-8 grid gap-6 rounded-xl bg-muted/60 p-4 text-sm sm:grid-cols-3">
-        <div>
+      <div className="mt-8 grid grid-cols-2 gap-4 rounded-xl bg-muted/60 p-4 text-sm sm:grid-cols-3 sm:gap-6">
+        <div className="col-span-2 sm:col-span-1">
           <p className="text-xs font-semibold text-muted-foreground">Para</p>
           <p className="mt-1 font-bold">{client?.name ?? "—"}</p>
           {client?.document ? <p className="text-muted-foreground">{client.document}</p> : null}
@@ -86,7 +86,7 @@ export function InvoiceDocument({
         </tbody>
       </table>
 
-      <div className="mt-4 flex flex-col-reverse gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mt-4 flex flex-col-reverse gap-6 sm:flex-row sm:items-end">
         {invoice.status === "paga" ? (
           <div
             aria-hidden
@@ -95,10 +95,8 @@ export function InvoiceDocument({
             <p className="text-xl font-black tracking-[0.25em]">PAGO</p>
             <p className="text-[0.65rem] font-bold tabular">{formatDate(invoice.paidAt)}</p>
           </div>
-        ) : (
-          <span />
-        )}
-        <dl className="grid w-full max-w-xs gap-2 self-end text-sm">
+        ) : null}
+        <dl className="ml-auto grid w-full max-w-xs gap-2 text-sm">
           {invoice.discountCents > 0 ? (
             <>
               <div className="flex justify-between">

@@ -62,7 +62,7 @@ export default async function InvoicePage({
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <InvoiceDocument invoice={invoice} items={items} client={client} owner={user} />
+        <InvoiceDocument invoice={invoice} items={items} client={client} owner={user} className="self-start" />
 
         <aside className="grid content-start gap-4">
           {invoice.status === "rascunho" ? (

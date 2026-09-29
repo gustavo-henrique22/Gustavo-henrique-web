@@ -1,3 +1,52 @@
+# Recebi — controle financeiro para freelancers
+
+Este repositório tem duas partes:
+
+- `/` — o portfólio de Gustavo Henrique (`app/page.tsx`)
+- `/recebi` — o **Recebi**, um SaaS de controle financeiro para freelancers e MEIs
+
+## O que o Recebi faz
+
+- Cadastro, login, redefinição de senha e bloqueio após muitas tentativas erradas
+- Painel do mês: recebido, gasto, lucro, imposto estimado, sobra livre, meta, a receber/a pagar e próximos vencimentos
+- Lançamentos de receitas e despesas (com repetição mensal), clientes e projetos
+- Cobranças com link público, QR Code e Pix copia e cola; ao marcar como paga, a receita entra sozinha nos lançamentos
+- Relatórios anuais, acompanhamento do limite do MEI e exportação para Excel (CSV)
+- Planos Grátis e Pro, e uma área de administração em `/recebi/painel/admin`
+
+## Onde ficam as coisas
+
+| Pasta | Conteúdo |
+| --- | --- |
+| `app/recebi/` | Páginas (landing, login, painel, cobrança pública) |
+| `components/recebi/` | Componentes de interface do Recebi |
+| `lib/recebi/` | Regras de negócio, consultas e server actions (`lib/recebi/actions/`) |
+| `lib/recebi/config.ts` | Nome, preço do Pro, limites do plano Grátis e WhatsApp de suporte |
+| `db/schema.ts` e `drizzle/` | Tabelas do banco D1 e a migração gerada |
+
+## Administração e plano Pro
+
+- A **primeira conta criada** vira administradora. Para escolher os administradores
+  explicitamente, defina a variável `RECEBI_ADMIN_EMAILS` (e-mails separados por vírgula).
+- O botão "Assinar pelo WhatsApp" abre uma conversa com o número em `SUPPORT_WHATSAPP`.
+  Depois de receber o Pix, libere o Pro para o cliente no painel de administração (+1 mês ou +1 ano).
+- Redefinição de senha por e-mail funciona quando `RESEND_API_KEY` e `RECEBI_EMAIL_FROM`
+  estão configuradas ([Resend](https://resend.com)). Sem elas, o administrador gera o link
+  de nova senha no painel e envia manualmente.
+
+## Rodando localmente
+
+```bash
+npm run install:ci        # instala as dependências
+npm run db:migrate:local  # cria as tabelas no banco D1 local
+npm run dev               # abre em http://localhost:5173/recebi
+```
+
+Depois de alterar `db/schema.ts`, gere uma nova migração com `npm run db:generate`.
+Em produção, a plataforma aplica as migrações de `drizzle/` no banco D1 declarado em `.openai/hosting.json`.
+
+---
+
 # vinext-starter
 
 A clean full-stack starter running on
