@@ -27,6 +27,7 @@ const statement = await vite.ssrLoadModule("/lib/recebi/statement.ts");
 const slug = await vite.ssrLoadModule("/lib/recebi/slug.ts");
 const enc = await vite.ssrLoadModule("/lib/recebi/encryption-core.ts");
 const pay = await vite.ssrLoadModule("/lib/recebi/payment-providers.ts");
+const nfse = await vite.ssrLoadModule("/lib/recebi/nfse-payload.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -58,7 +59,10 @@ test("does month and date arithmetic without time zone drift", () => {
   assert.equal(dates.addMonthsToDate("2026-01-31", 1), "2026-02-28");
   assert.equal(dates.addMonthsToDate("2028-01-31", 1), "2028-02-29");
   assert.equal(dates.addDays("2026-02-27", 2), "2026-03-01");
-  assert.deepEqual(dates.monthBounds("2026-02"), { start: "2026-02-01", end: "2026-02-28" });
+  assert.deepEqual(dates.monthBounds("2026-02"), {
+    start: "2026-02-01",
+    end: "2026-02-28",
+  });
   assert.equal(dates.isValidISODate("2026-02-30"), false);
   assert.equal(dates.isValidISODate("2026-02-28"), true);
   assert.equal(dates.isValidMonth("2026-13"), false);
@@ -118,21 +122,39 @@ test("writes money amounts in words for receipts", () => {
   assert.equal(extenso.moneyToWords(150), "um real e cinquenta centavos");
   assert.equal(extenso.moneyToWords(1), "um centavo");
   assert.equal(extenso.moneyToWords(10000), "cem reais");
-  assert.equal(extenso.moneyToWords(12345), "cento e vinte e três reais e quarenta e cinco centavos");
+  assert.equal(
+    extenso.moneyToWords(12345),
+    "cento e vinte e três reais e quarenta e cinco centavos",
+  );
   assert.equal(extenso.moneyToWords(100000), "mil reais");
   assert.equal(extenso.moneyToWords(120000), "mil e duzentos reais");
-  assert.equal(extenso.moneyToWords(125050), "mil duzentos e cinquenta reais e cinquenta centavos");
+  assert.equal(
+    extenso.moneyToWords(125050),
+    "mil duzentos e cinquenta reais e cinquenta centavos",
+  );
   assert.equal(extenso.moneyToWords(100500), "mil e cinco reais");
   assert.equal(extenso.moneyToWords(170000), "mil e setecentos reais");
-  assert.equal(extenso.moneyToWords(2140000), "vinte e um mil e quatrocentos reais");
+  assert.equal(
+    extenso.moneyToWords(2140000),
+    "vinte e um mil e quatrocentos reais",
+  );
   assert.equal(extenso.moneyToWords(100000000), "um milhão de reais");
-  assert.equal(extenso.moneyToWords(250000000), "dois milhões e quinhentos mil reais");
+  assert.equal(
+    extenso.moneyToWords(250000000),
+    "dois milhões e quinhentos mil reais",
+  );
   assert.equal(extenso.moneyToWords(100010000), "um milhão e cem reais");
 });
 
 test("formats timestamps in São Paulo time and relative to now", () => {
-  assert.equal(dates.formatDateTime("2026-09-28 17:20:00"), "28/09/2026 às 14:20");
-  assert.equal(dates.formatDateTime("2026-09-28T17:20:00.000Z"), "28/09/2026 às 14:20");
+  assert.equal(
+    dates.formatDateTime("2026-09-28 17:20:00"),
+    "28/09/2026 às 14:20",
+  );
+  assert.equal(
+    dates.formatDateTime("2026-09-28T17:20:00.000Z"),
+    "28/09/2026 às 14:20",
+  );
   const now = new Date("2026-09-28T18:00:00Z");
   assert.equal(dates.formatRelative("2026-09-28 17:59:40", now), "agora");
   assert.equal(dates.formatRelative("2026-09-28 17:20:00", now), "há 40 min");
@@ -191,14 +213,17 @@ test("reads CSV statements from different banks", () => {
   assert.equal(b.rows[0].amountCents, -45000);
   assert.notEqual(b.rows[0].externalId, b.rows[1].externalId);
 
-  const split = "data;descricao;credito;debito\n2026-09-01;Tarifa pacote;;19,90\n2026-09-02;Pix recebido;2.000,00;\n";
+  const split =
+    "data;descricao;credito;debito\n2026-09-01;Tarifa pacote;;19,90\n2026-09-02;Pix recebido;2.000,00;\n";
   const c = statement.parseStatement(split, "banco.csv");
   assert.deepEqual(
     c.rows.map((r) => r.amountCents),
     [-1990, 200000],
   );
 
-  assert.ok("error" in statement.parseStatement("nada,aqui\nfoo,bar\n", "x.csv"));
+  assert.ok(
+    "error" in statement.parseStatement("nada,aqui\nfoo,bar\n", "x.csv"),
+  );
 });
 
 test("parses statement amounts and dates", () => {
@@ -214,19 +239,45 @@ test("parses statement amounts and dates", () => {
 });
 
 test("suggests categories, clients and rule keywords", () => {
-  assert.equal(statement.suggestCategory("UBER *TRIP", "despesa").category, "Transporte");
-  assert.equal(statement.suggestCategory("Pagamento Adobe Systems", "despesa").category, "Software e assinaturas");
-  assert.equal(statement.suggestCategory("MERCADO PAGO *LOJA", "despesa").category, "Outras despesas");
-  assert.equal(statement.suggestCategory("DAS - Simples Nacional", "despesa").category, "Impostos (DAS, INSS)");
-  assert.equal(statement.suggestCategory("Pix recebido de Fulano", "receita").category, "Projeto");
-  const rules = [{ pattern: "uber", type: "despesa", category: "Terceirizados" }];
-  assert.deepEqual(statement.suggestCategory("Úber trip", "despesa", rules), { category: "Terceirizados", byRule: true });
+  assert.equal(
+    statement.suggestCategory("UBER *TRIP", "despesa").category,
+    "Transporte",
+  );
+  assert.equal(
+    statement.suggestCategory("Pagamento Adobe Systems", "despesa").category,
+    "Software e assinaturas",
+  );
+  assert.equal(
+    statement.suggestCategory("MERCADO PAGO *LOJA", "despesa").category,
+    "Outras despesas",
+  );
+  assert.equal(
+    statement.suggestCategory("DAS - Simples Nacional", "despesa").category,
+    "Impostos (DAS, INSS)",
+  );
+  assert.equal(
+    statement.suggestCategory("Pix recebido de Fulano", "receita").category,
+    "Projeto",
+  );
+  const rules = [
+    { pattern: "uber", type: "despesa", category: "Terceirizados" },
+  ];
+  assert.deepEqual(statement.suggestCategory("Úber trip", "despesa", rules), {
+    category: "Terceirizados",
+    byRule: true,
+  });
   const clients = [
     { id: "1", name: "Studio" },
     { id: "2", name: "Studio Lima" },
   ];
-  assert.equal(statement.matchClient("PIX RECEBIDO STUDIO LIMA LTDA", clients).id, "2");
-  assert.equal(statement.guessKeyword("Compra no débito - UBER *TRIP 1234"), "uber");
+  assert.equal(
+    statement.matchClient("PIX RECEBIDO STUDIO LIMA LTDA", clients).id,
+    "2",
+  );
+  assert.equal(
+    statement.guessKeyword("Compra no débito - UBER *TRIP 1234"),
+    "uber",
+  );
   assert.equal(statement.guessKeyword("PIX 123"), null);
 });
 
@@ -242,7 +293,10 @@ test("computes monthly recurring dates", () => {
 
 test("builds public page addresses", () => {
   assert.equal(slug.slugify("Marina Costa Design"), "marina-costa-design");
-  assert.equal(slug.slugify("  João & Cia. — Fotografia! "), "joao-cia-fotografia");
+  assert.equal(
+    slug.slugify("  João & Cia. — Fotografia! "),
+    "joao-cia-fotografia",
+  );
   assert.equal(slug.isValidSlug("marina-costa"), true);
   assert.equal(slug.isValidSlug("ab"), false);
   assert.equal(slug.isValidSlug("admin"), false);
@@ -253,15 +307,31 @@ test("builds public page addresses", () => {
 test("encrypts sensitive fields with AES-GCM bound to their context", async () => {
   const key = "chave-de-teste-com-mais-de-32-caracteres!!";
   const other = "outra-chave-de-teste-com-mais-de-32-caracteres";
-  const sealed = await enc.encryptWith(key, "123.456.789-09", "users.document:u1");
+  const sealed = await enc.encryptWith(
+    key,
+    "123.456.789-09",
+    "users.document:u1",
+  );
   assert.ok(sealed.startsWith("enc:v1:"));
   assert.ok(!sealed.includes("123.456"));
-  assert.notEqual(sealed, await enc.encryptWith(key, "123.456.789-09", "users.document:u1"));
-  assert.equal(await enc.decryptWith([key], sealed, "users.document:u1"), "123.456.789-09");
+  assert.notEqual(
+    sealed,
+    await enc.encryptWith(key, "123.456.789-09", "users.document:u1"),
+  );
+  assert.equal(
+    await enc.decryptWith([key], sealed, "users.document:u1"),
+    "123.456.789-09",
+  );
   assert.equal(await enc.decryptWith([key], sealed, "users.document:u2"), "");
   assert.equal(await enc.decryptWith([other], sealed, "users.document:u1"), "");
-  assert.equal(await enc.decryptWith([other, key], sealed, "users.document:u1"), "123.456.789-09");
-  assert.equal(await enc.decryptWith([key], "texto antigo", "x"), "texto antigo");
+  assert.equal(
+    await enc.decryptWith([other, key], sealed, "users.document:u1"),
+    "123.456.789-09",
+  );
+  assert.equal(
+    await enc.decryptWith([key], "texto antigo", "x"),
+    "texto antigo",
+  );
   assert.equal(await enc.encryptWith(undefined, "sem chave", "x"), "sem chave");
   assert.equal(await enc.encryptWith("curta", "sem chave", "x"), "sem chave");
   assert.equal(await enc.needsReencryptionWith(other, sealed), true);
@@ -276,14 +346,27 @@ test("reads and verifies Kiwify payment notices", async () => {
     Customer: { full_name: "Ana Lima", email: "Ana@Exemplo.com" },
     Commissions: { charge_amount: 19900 },
     Product: { product_name: "Recebi Pro" },
-    Subscription: { id: "sub-1", plan: { name: "Plano Anual", frequency: "yearly" } },
+    Subscription: {
+      id: "sub-1",
+      plan: { name: "Plano Anual", frequency: "yearly" },
+    },
     TrackingParameters: { sck: "0b6c1d2e-1111-4222-8333-444455556666" },
   });
   const token = "token-kiwify";
   const signature = createHmac("sha1", token).update(body).digest("hex");
   assert.equal(await pay.verifyKiwifySignature(body, signature, token), true);
-  assert.equal(await pay.verifyKiwifySignature(body, signature, "outro"), false);
-  assert.equal(await pay.verifyKiwifySignature(body.replace("19900", "99900"), signature, token), false);
+  assert.equal(
+    await pay.verifyKiwifySignature(body, signature, "outro"),
+    false,
+  );
+  assert.equal(
+    await pay.verifyKiwifySignature(
+      body.replace("19900", "99900"),
+      signature,
+      token,
+    ),
+    false,
+  );
   assert.equal(await pay.verifyKiwifySignature(body, null, token), false);
   const pretty = JSON.stringify(JSON.parse(body), null, 2);
   assert.equal(await pay.verifyKiwifySignature(pretty, signature, token), true);
@@ -295,14 +378,45 @@ test("reads and verifies Kiwify payment notices", async () => {
   assert.equal(event.email, "Ana@Exemplo.com");
   assert.equal(event.userHint, "0b6c1d2e-1111-4222-8333-444455556666");
   assert.equal(
-    pay.parseKiwify({ order_id: "x", order_status: "paid", webhook_event_type: "order_approved", Commissions: { charge_amount: "19.90" } })
-      .months,
+    pay.parseKiwify({
+      order_id: "x",
+      order_status: "paid",
+      webhook_event_type: "order_approved",
+      Commissions: { charge_amount: "19.90" },
+    }).months,
     1,
   );
-  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "refunded", webhook_event_type: "order_refunded" }).kind, "reembolso");
-  assert.equal(pay.parseKiwify({ order_id: "x", webhook_event_type: "subscription_canceled" }).kind, "cancelamento");
-  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "waiting_payment", webhook_event_type: "pix_created" }), null);
-  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "refused", webhook_event_type: "order_approved" }), null);
+  assert.equal(
+    pay.parseKiwify({
+      order_id: "x",
+      order_status: "refunded",
+      webhook_event_type: "order_refunded",
+    }).kind,
+    "reembolso",
+  );
+  assert.equal(
+    pay.parseKiwify({
+      order_id: "x",
+      webhook_event_type: "subscription_canceled",
+    }).kind,
+    "cancelamento",
+  );
+  assert.equal(
+    pay.parseKiwify({
+      order_id: "x",
+      order_status: "waiting_payment",
+      webhook_event_type: "pix_created",
+    }),
+    null,
+  );
+  assert.equal(
+    pay.parseKiwify({
+      order_id: "x",
+      order_status: "refused",
+      webhook_event_type: "order_approved",
+    }),
+    null,
+  );
 });
 
 test("reads and verifies Shopify payment notices", async () => {
@@ -311,7 +425,13 @@ test("reads and verifies Shopify payment notices", async () => {
     email: "joao@exemplo.com",
     financial_status: "paid",
     total_price: "19.90",
-    line_items: [{ title: "Recebi Pro", variant_title: "Mensal", sku: "RECEBI-PRO-MENSAL" }],
+    line_items: [
+      {
+        title: "Recebi Pro",
+        variant_title: "Mensal",
+        sku: "RECEBI-PRO-MENSAL",
+      },
+    ],
     note_attributes: [{ name: "recebi_user", value: "abc" }],
   });
   const secret = "segredo-shopify";
@@ -323,10 +443,189 @@ test("reads and verifies Shopify payment notices", async () => {
   assert.equal(event.amountCents, 1990);
   assert.equal(event.months, 1);
   assert.equal(event.userHint, "abc");
-  assert.equal(pay.parseShopify("orders/paid", { id: 1, financial_status: "paid", total_price: "199.00", line_items: [] }).months, 12);
-  assert.equal(pay.parseShopify("refunds/create", { order_id: 1 }).kind, "reembolso");
-  assert.equal(pay.parseShopify("orders/cancelled", { id: 1, financial_status: "paid" }), null);
+  assert.equal(
+    pay.parseShopify("orders/paid", {
+      id: 1,
+      financial_status: "paid",
+      total_price: "199.00",
+      line_items: [],
+    }).months,
+    12,
+  );
+  assert.equal(
+    pay.parseShopify("refunds/create", { order_id: 1 }).kind,
+    "reembolso",
+  );
+  assert.equal(
+    pay.parseShopify("orders/cancelled", { id: 1, financial_status: "paid" }),
+    null,
+  );
   assert.equal(pay.parseShopify("orders/create", { id: 1 }), null);
   assert.equal(pay.toCents("R$ 1.234,56"), 123456);
   assert.equal(pay.toCents(19.9), 1990);
+});
+
+const nfseConfig = {
+  layout: "nacional",
+  cnpj: "12.345.678/0001-95",
+  inscricaoMunicipal: "",
+  codigoMunicipio: "3550308",
+  regime: "mei",
+  itemListaServico: "",
+  codigoTributacao: "01.07.01",
+  aliquotaBp: 0,
+};
+const nfseService = {
+  issuedAt: new Date("2026-10-01T12:30:00Z"),
+  description: "  Criação de identidade visual  ",
+  amountCents: 150050,
+  client: {
+    name: "Padaria Pão Quente",
+    document: "111.444.777-35",
+    email: "contato@padaria.com.br",
+  },
+};
+
+test("lists what is missing before issuing an NFS-e", () => {
+  assert.deepEqual(nfse.missingConfig(nfseConfig), []);
+  assert.deepEqual(
+    nfse.missingConfig({
+      ...nfseConfig,
+      cnpj: "123",
+      codigoMunicipio: "",
+      codigoTributacao: "",
+    }),
+    [
+      "CNPJ (14 números)",
+      "código IBGE do município (7 números)",
+      "código de tributação nacional (6 números)",
+    ],
+  );
+  const municipal = {
+    ...nfseConfig,
+    layout: "municipal",
+    regime: "simples",
+    itemListaServico: "",
+    aliquotaBp: 0,
+  };
+  assert.deepEqual(nfse.missingConfig(municipal), [
+    "item da lista de serviço",
+    "alíquota do ISS",
+  ]);
+  assert.deepEqual(
+    nfse.missingConfig({
+      ...municipal,
+      regime: "mei",
+      itemListaServico: "1.07",
+    }),
+    [],
+  );
+});
+
+test("builds the NFS-e Nacional request for Focus NFe", () => {
+  const payload = nfse.buildNfsePayload(nfseConfig, nfseService);
+  assert.equal(payload.data_emissao, "2026-10-01T09:30:00-0300");
+  assert.equal(payload.data_competencia, "2026-10-01");
+  assert.equal(payload.cnpj_prestador, "12345678000195");
+  assert.equal(payload.codigo_municipio_emissora, "3550308");
+  assert.equal(payload.codigo_opcao_simples_nacional, 2);
+  assert.equal(payload.cpf_tomador, "11144477735");
+  assert.equal(payload.cnpj_tomador, undefined);
+  assert.equal(payload.inscricao_municipal_prestador, undefined);
+  assert.equal(payload.codigo_tributacao_nacional_iss, "010701");
+  assert.equal(payload.descricao_servico, "Criação de identidade visual");
+  assert.equal(payload.valor_servico, 1500.5);
+  assert.equal(nfse.focusPath("nacional"), "/v2/nfsen");
+  assert.equal(nfse.focusBaseUrl("producao"), "https://api.focusnfe.com.br");
+  assert.equal(
+    nfse.focusBaseUrl("homologacao"),
+    "https://homologacao.focusnfe.com.br",
+  );
+});
+
+test("builds the municipal NFS-e request for Focus NFe", () => {
+  const payload = nfse.buildNfsePayload(
+    {
+      ...nfseConfig,
+      layout: "municipal",
+      regime: "outro",
+      inscricaoMunicipal: "12.345-6",
+      itemListaServico: "1.07",
+      aliquotaBp: 250,
+    },
+    {
+      ...nfseService,
+      client: { name: "Loja X", document: "11.222.333/0001-81", email: "" },
+    },
+  );
+  assert.equal(payload.optante_simples_nacional, false);
+  assert.deepEqual(payload.prestador, {
+    cnpj: "12345678000195",
+    inscricao_municipal: "123456",
+    codigo_municipio: "3550308",
+  });
+  assert.deepEqual(payload.tomador, {
+    cnpj: "11222333000181",
+    razao_social: "Loja X",
+  });
+  assert.equal(payload.servico.aliquota, 2.5);
+  assert.equal(payload.servico.item_lista_servico, "107");
+  assert.equal(payload.servico.valor_servicos, 1500.5);
+  assert.equal(nfse.focusPath("municipal"), "/v2/nfse");
+});
+
+test("reads Focus NFe answers", () => {
+  const base = "https://homologacao.focusnfe.com.br";
+  assert.equal(
+    nfse.parseFocusResponse({ status: "processando_autorizacao" }, base).status,
+    "processando",
+  );
+  const ok = nfse.parseFocusResponse(
+    {
+      status: "autorizado",
+      numero: 42,
+      codigo_verificacao: "AB12",
+      url_danfse: "https://nfse.gov.br/danfse/1",
+      caminho_xml_nota_fiscal: "/arquivos/nota.xml",
+    },
+    base,
+  );
+  assert.deepEqual(ok, {
+    status: "autorizado",
+    numero: "42",
+    codigoVerificacao: "AB12",
+    pdfUrl: "https://nfse.gov.br/danfse/1",
+    xmlUrl: "https://homologacao.focusnfe.com.br/arquivos/nota.xml",
+    message: "",
+  });
+  const error = nfse.parseFocusResponse(
+    {
+      status: "erro_autorizacao",
+      erros: [
+        { codigo: "E1", mensagem: "CNPJ inválido", correcao: "Confira o CNPJ" },
+      ],
+    },
+    base,
+  );
+  assert.equal(error.status, "erro");
+  assert.equal(error.message, "CNPJ inválido — Confira o CNPJ");
+  assert.equal(
+    nfse.parseFocusResponse(
+      { codigo: "requisicao_invalida", mensagem: "Falta campo" },
+      base,
+    ).message,
+    "Falta campo",
+  );
+  assert.equal(
+    nfse.parseFocusResponse({ status: "cancelado" }, base).status,
+    "cancelado",
+  );
+  // Um caminho estranho nunca vira link de outro esquema (ex.: javascript:).
+  assert.equal(
+    nfse.parseFocusResponse(
+      { caminho_pdf_nota_fiscal: "javascript:alert(1)" },
+      base,
+    ).pdfUrl,
+    `${base}/javascript:alert(1)`,
+  );
 });

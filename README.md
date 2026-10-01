@@ -25,10 +25,16 @@ Este repositório tem duas partes:
 - **Recibos:** página pronta para imprimir, com valor por extenso
 - **Relatórios** anuais, limite do MEI e exportação para Excel (CSV)
 - **Calculadora de preço** no painel e pública em `/recebi/calculadora`
-- **Planos** Grátis e Pro (mensal ou anual), com venda automática pelo Mercado Pago
+- **Nota fiscal de serviço** (Pro): NFS-e Nacional (MEI) ou do sistema da prefeitura, emitida da própria cobrança pela [Focus NFe](https://focusnfe.com.br), com consulta, PDF/XML e cancelamento
+- **Planos** Grátis e Pro (mensal ou anual), vendidos pela **Kiwify** ou **Shopify** (ou pelo Mercado Pago), com liberação automática
+- **Indique e ganhe:** link de convite; quem é convidado ganha 7 dias de Pro e quem convida ganha 1 mês quando o amigo assina
+- **Primeiros passos:** guia no painel para deixar a conta pronta em poucos minutos
 - **E-mails automáticos:** boas-vindas, envio de orçamentos e cobranças, recibo, lembretes de vencimento e avisos
 - **App no celular** (PWA), tema claro/escuro e busca rápida com `Ctrl K`
-- **Administração** em `/recebi/painel/admin`: usuários, planos, pagamentos e status das integrações
+- **Segurança da conta:** confirmação de e-mail, aviso de login em aparelho novo, lista de aparelhos conectados e histórico de atividade
+- **Privacidade (LGPD):** política de privacidade, baixar todos os dados em JSON e excluir a conta
+- **Criptografia** dos dados sensíveis no banco (AES-256-GCM)
+- **Administração** em `/recebi/painel/admin`: assinantes, receita por mês (MRR), cadastros, uso dos recursos, pagamentos a vincular e status das integrações
 
 ## Onde ficam as coisas
 
@@ -49,7 +55,11 @@ e o painel de administração mostra quais estão ativas.
 | Variável | Para quê |
 | --- | --- |
 | `RECEBI_ADMIN_EMAILS` | E-mails de administradores, separados por vírgula. Sem ela, a **primeira conta criada** vira administradora. |
-| `RECEBI_SITE_URL` | Endereço público do site (ex.: `https://meusite.com`), usado nos links dos e-mails. |
+| `RECEBI_SITE_URL` | Endereço público do site (ex.: `https://meusite.com`), usado nos links dos e-mails. **Recomendado.** |
+| `RECEBI_ENCRYPTION_KEY` | Chave da criptografia dos dados sensíveis (mínimo 32 caracteres; gere com `openssl rand -base64 32`). **Guarde uma cópia:** sem ela, os dados criptografados não abrem. Para trocar, mova a atual para `RECEBI_ENCRYPTION_KEY_OLD` e cadastre uma nova. |
+| `RECEBI_CHECKOUT_MENSAL_URL` e `RECEBI_CHECKOUT_ANUAL_URL` | Links de pagamento do Pro na Kiwify ou na Shopify. Com eles, os botões do plano levam para lá. |
+| `KIWIFY_WEBHOOK_TOKEN` | Token do webhook da Kiwify (valida as notificações). |
+| `SHOPIFY_WEBHOOK_SECRET` | Segredo de assinatura dos webhooks da Shopify. |
 | `RESEND_API_KEY` e `RECEBI_EMAIL_FROM` | Envio de e-mails pelo [Resend](https://resend.com). `RECEBI_EMAIL_FROM` no formato `Recebi <ola@seudominio.com>`. |
 | `MERCADOPAGO_ACCESS_TOKEN` | Venda automática do Pro (Pix, cartão e boleto) pelo Checkout Pro do Mercado Pago. |
 | `MERCADOPAGO_WEBHOOK_SECRET` | (Opcional) Valida a assinatura das notificações do Mercado Pago. |
@@ -58,13 +68,27 @@ e o painel de administração mostra quais estão ativas.
 | `ANTHROPIC_API_KEY` | Assistente e orçamentos com IA (Claude). Crie a chave em [console.anthropic.com](https://console.anthropic.com). |
 | `ANTHROPIC_BASE_URL` | (Opcional) Endereço alternativo da API, por exemplo o AI Gateway da Cloudflare. |
 
+**Kiwify:** crie os produtos "Recebi Pro Mensal" e "Recebi Pro Anual" e cadastre o webhook
+`https://SEU-SITE/recebi/api/pagamentos/kiwify` com os eventos de compra aprovada, reembolso, chargeback, renovação e
+cancelamento. O link de pagamento recebe o e-mail da pessoa e o `sck` com o id da conta, então o Pro é liberado
+sozinho mesmo se ela pagar com outro e-mail. Reembolso e chargeback tiram os dias pagos.
+
+**Shopify:** cadastre os webhooks `orders/paid`, `refunds/create` e `orders/cancelled` para
+`https://SEU-SITE/recebi/api/pagamentos/shopify`. Os links de carrinho recebem o e-mail e o id da conta.
+Pagamentos que não encontram a conta aparecem no painel de administração para vincular com um clique,
+e a própria pessoa pode informar o número do pedido na página do plano.
+
+**Nota fiscal (NFS-e):** cada pessoa cria a própria conta na Focus NFe, cola o token em
+Configurações → Nota fiscal (fica criptografado) e emite pela cobrança. Comece em homologação (teste) e só depois
+troque para produção. Os campos seguem os exemplos públicos da Focus NFe; confira os exigidos pela sua cidade.
+
 **Mercado Pago:** o endereço de notificação (`/recebi/api/mercadopago`) é enviado automaticamente em cada
 pagamento. O Pro também é liberado quando a pessoa volta do checkout, conferindo o pagamento na API.
 
 **Tarefas diárias:** chame uma vez por dia (por exemplo, com o [cron-job.org](https://cron-job.org))
 `https://SEU-SITE/recebi/api/lembretes?chave=VALOR_DE_RECEBI_CRON_SECRET`. Ela gera as cobranças recorrentes,
 envia os lembretes (3 dias antes, no dia e 3 dias depois do vencimento, para clientes de usuários Pro) e,
-nos primeiros dias do mês, o resumo do mês anterior. As recorrências também são geradas quando a pessoa abre o painel.
+nos primeiros dias do mês, o resumo do mês anterior. Também atualiza as notas fiscais em processamento. As recorrências também são geradas quando a pessoa abre o painel.
 
 **Assistente com IA:** usa o modelo `claude-opus-5-5`. Cada pessoa tem um limite diário de perguntas
 (5 no Grátis, 60 no Pro, 8 na demonstração) e o assistente só vê um resumo das finanças da própria conta.

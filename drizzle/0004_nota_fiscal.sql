@@ -1,0 +1,2 @@
+ALTER TABLE `nfse_documents` ADD `layout` text DEFAULT 'nacional' NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `nfse_documents_active_invoice` ON `nfse_documents` (`invoice_id`) WHERE "nfse_documents"."status" in ('processando', 'autorizado');
