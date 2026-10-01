@@ -1,18 +1,4 @@
-import {
-  Ban,
-  Bell,
-  Check,
-  CheckCheck,
-  Eye,
-  FilePlus2,
-  Mail,
-  Receipt,
-  Repeat,
-  Send,
-  ThumbsDown,
-  Undo2,
-  Wallet,
-} from "lucide-react";
+import { Ban, Bell, Check, CheckCheck, Eye, FilePlus2, Mail, Receipt, Repeat, Send, ThumbsDown, Undo2, Wallet } from "lucide-react";
 import { EVENT_LABELS } from "@/lib/recebi/activity";
 import { formatDateTime, formatRelative } from "@/lib/recebi/dates";
 import { cn } from "@/lib/utils";
@@ -47,20 +33,9 @@ const TONES: Record<string, string> = {
 type Event = { id: string; type: string; detail: string; createdAt: string };
 
 /** Histórico do documento: o que aconteceu e quando (inclusive quando o cliente abriu o link). */
-export function DocumentTimeline({
-  events,
-  viewCount,
-  viewedAt,
-}: {
-  events: Event[];
-  viewCount: number;
-  viewedAt: string | null;
-}) {
+export function DocumentTimeline({ events, viewCount, viewedAt }: { events: Event[]; viewCount: number; viewedAt: string | null }) {
   return (
-    <section
-      className="rounded-2xl border bg-card p-5 shadow-xs"
-      aria-labelledby="timeline-title"
-    >
+    <section className="rounded-2xl border bg-card p-5 shadow-xs" aria-labelledby="timeline-title">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 id="timeline-title" className="font-bold">
           Histórico
@@ -68,15 +43,9 @@ export function DocumentTimeline({
         <span
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-            viewCount > 0
-              ? "bg-[#c9ff3c] text-[#101c34]"
-              : "bg-muted text-muted-foreground",
+            viewCount > 0 ? "bg-[#c9ff3c] text-[#101c34]" : "bg-muted text-muted-foreground",
           )}
-          title={
-            viewedAt
-              ? `Aberto pela primeira vez em ${formatDateTime(viewedAt)}`
-              : undefined
-          }
+          title={viewedAt ? `Aberto pela primeira vez em ${formatDateTime(viewedAt)}` : undefined}
         >
           <Eye className="size-3.5" />
           {viewCount > 0 ? `Visto ${viewCount}×` : "Ainda não visto"}
@@ -90,27 +59,13 @@ export function DocumentTimeline({
             const Icon = ICONS[event.type] ?? Check;
             return (
               <li key={event.id} className="relative flex gap-3">
-                <span
-                  className={cn(
-                    "z-10 grid size-7 shrink-0 place-items-center rounded-full border bg-card",
-                    TONES[event.type],
-                  )}
-                >
+                <span className={cn("z-10 grid size-7 shrink-0 place-items-center rounded-full border bg-card", TONES[event.type])}>
                   <Icon className="size-3.5" />
                 </span>
                 <div className="min-w-0 pt-0.5">
-                  <p className="text-sm font-medium">
-                    {EVENT_LABELS[event.type] ?? event.type}
-                  </p>
-                  {event.detail ? (
-                    <p className="text-xs break-words text-muted-foreground">
-                      {event.detail}
-                    </p>
-                  ) : null}
-                  <p
-                    className="text-xs text-muted-foreground"
-                    title={formatDateTime(event.createdAt)}
-                  >
+                  <p className="text-sm font-medium">{EVENT_LABELS[event.type] ?? event.type}</p>
+                  {event.detail ? <p className="text-xs break-words text-muted-foreground">{event.detail}</p> : null}
+                  <p className="text-xs text-muted-foreground" title={formatDateTime(event.createdAt)}>
                     {formatRelative(event.createdAt)}
                   </p>
                 </div>

@@ -24,43 +24,22 @@ export const EVENT_LABELS: Record<string, string> = {
   nfse: "Nota fiscal",
 };
 
-export async function logEvent(
-  userId: string,
-  documentType: DocumentType,
-  documentId: string,
-  type: string,
-  detail = "",
-) {
+export async function logEvent(userId: string, documentType: DocumentType, documentId: string, type: string, detail = "") {
   await getDb()
     .insert(documentEvents)
-    .values({
-      id: crypto.randomUUID(),
-      userId,
-      documentType,
-      documentId,
-      type,
-      detail: detail.slice(0, 300),
-    });
+    .values({ id: crypto.randomUUID(), userId, documentType, documentId, type, detail: detail.slice(0, 300) });
 }
 
 export async function listEvents(userId: string, documentId: string) {
   return getDb()
     .select()
     .from(documentEvents)
-    .where(
-      and(
-        eq(documentEvents.userId, userId),
-        eq(documentEvents.documentId, documentId),
-      ),
-    )
+    .where(and(eq(documentEvents.userId, userId), eq(documentEvents.documentId, documentId)))
     .orderBy(desc(documentEvents.createdAt))
     .limit(50);
 }
 
-export async function notify(
-  userId: string,
-  data: { type: string; title: string; body?: string; href?: string },
-) {
+export async function notify(userId: string, data: { type: string; title: string; body?: string; href?: string }) {
   await getDb()
     .insert(notifications)
     .values({
@@ -76,25 +55,17 @@ export async function notify(
 export async function unreadNotifications(userId: string) {
   const db = getDb();
   const [items, [{ count }]] = await Promise.all([
-    db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt))
-      .limit(12),
+    db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(12),
     db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
-      .where(
-        and(eq(notifications.userId, userId), isNull(notifications.readAt)),
-      ),
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt))),
   ]);
   return { items, unread: count };
 }
 
 /** Pré-visualizações de link (WhatsApp, redes sociais) não contam como o cliente abrindo. */
-const BOT_RE =
-  /bot|crawl|spider|preview|whatsapp|facebookexternalhit|telegram|slack|discord|skype|linkedin|embedly|curl|wget/i;
+const BOT_RE = /bot|crawl|spider|preview|whatsapp|facebookexternalhit|telegram|slack|discord|skype|linkedin|embedly|curl|wget/i;
 
 /**
  * Registra que o cliente abriu um orçamento ou cobrança pública.
@@ -109,13 +80,7 @@ export async function recordView(
   if (viewerUserId === doc.userId) return;
   const h = await headers();
   // Clique em "Aprovar"/"Recusar" e pré-carregamentos também renderizam a página; não são uma nova visita.
-  if (
-    h.has("x-rsc-action") ||
-    h.has("next-action") ||
-    h.has("next-router-prefetch") ||
-    h.get("purpose") === "prefetch"
-  )
-    return;
+  if (h.has("x-rsc-action") || h.has("next-action") || h.has("next-router-prefetch") || h.get("purpose") === "prefetch") return;
   const agent = h.get("user-agent") ?? "";
   if (!agent || BOT_RE.test(agent)) return;
 
@@ -124,27 +89,15 @@ export async function recordView(
   const table = documentType === "orcamento" ? quotes : invoices;
   await db
     .update(table)
-    .set({
-      viewCount: sql`${table.viewCount} + 1`,
-      viewedAt: doc.viewedAt ?? now,
-    })
+    .set({ viewCount: sql`${table.viewCount} + 1`, viewedAt: doc.viewedAt ?? now })
     .where(eq(table.id, doc.id));
 
   // Na linha do tempo, no máximo uma visualização por hora para não poluir.
-  const hourAgo = new Date(Date.now() - 3_600_000)
-    .toISOString()
-    .replace("T", " ")
-    .slice(0, 19);
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString().replace("T", " ").slice(0, 19);
   const [recent] = await db
     .select({ id: documentEvents.id })
     .from(documentEvents)
-    .where(
-      and(
-        eq(documentEvents.documentId, doc.id),
-        eq(documentEvents.type, "visualizado"),
-        gte(documentEvents.createdAt, hourAgo),
-      ),
-    )
+    .where(and(eq(documentEvents.documentId, doc.id), eq(documentEvents.type, "visualizado"), gte(documentEvents.createdAt, hourAgo)))
     .limit(1);
   if (!recent) await logEvent(doc.userId, documentType, doc.id, "visualizado");
 
@@ -154,10 +107,7 @@ export async function recordView(
     await notify(doc.userId, {
       type: "visualizado",
       title: `${clientName ?? "Seu cliente"} abriu ${label} #${number}`,
-      body:
-        documentType === "orcamento"
-          ? "Bom momento para mandar uma mensagem e tirar dúvidas."
-          : "Agora é só aguardar o pagamento.",
+      body: documentType === "orcamento" ? "Bom momento para mandar uma mensagem e tirar dúvidas." : "Agora é só aguardar o pagamento.",
       href: `/recebi/painel/${documentType === "orcamento" ? "orcamentos" : "cobrancas"}/${doc.id}`,
     });
   }
@@ -166,9 +116,5 @@ export async function recordView(
 /** Endereço de rede de quem fez a requisição (para o aceite eletrônico). */
 export async function requestIp(): Promise<string> {
   const h = await headers();
-  return (
-    h.get("cf-connecting-ip") ??
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    ""
-  ).slice(0, 64);
+  return (h.get("cf-connecting-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "").slice(0, 64);
 }

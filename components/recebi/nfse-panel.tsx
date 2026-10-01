@@ -1,82 +1,28 @@
-import {
-  Ban,
-  CircleAlert,
-  CircleCheck,
-  Clock,
-  FileCode2,
-  FileText,
-  FlaskConical,
-  Receipt,
-  RefreshCw,
-  Settings,
-} from "lucide-react";
+import { Ban, CircleAlert, CircleCheck, Clock, FileCode2, FileText, FlaskConical, Receipt, RefreshCw, Settings } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type {
-  Client,
-  Invoice,
-  InvoiceItem,
-  NfseDocument,
-  User,
-} from "@/db/schema";
-import {
-  cancelInvoiceNfse,
-  emitInvoiceNfse,
-  refreshInvoiceNfse,
-} from "@/lib/recebi/actions/nfse";
+import type { Client, Invoice, InvoiceItem, NfseDocument, User } from "@/db/schema";
+import { cancelInvoiceNfse, emitInvoiceNfse, refreshInvoiceNfse } from "@/lib/recebi/actions/nfse";
 import { hasPro } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { formatDateTime } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
-import {
-  getNfseSettings,
-  listInvoiceNfse,
-  nfseMissing,
-} from "@/lib/recebi/nfse";
+import { getNfseSettings, listInvoiceNfse, nfseMissing } from "@/lib/recebi/nfse";
 import { cn } from "@/lib/utils";
 import { ActionButton } from "./action-button";
 import { FormField, MoneyInput } from "./fields";
 import { FormDialog } from "./form-dialog";
 
-const STATUS: Record<
-  string,
-  {
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    className: string;
-  }
-> = {
-  processando: {
-    label: "Em processamento",
-    icon: Clock,
-    className: "bg-warning/15 text-warning",
-  },
-  autorizado: {
-    label: "Autorizada",
-    icon: CircleCheck,
-    className: "bg-income/15 text-income",
-  },
-  erro: {
-    label: "Não autorizada",
-    icon: CircleAlert,
-    className: "bg-destructive/10 text-destructive",
-  },
-  cancelado: {
-    label: "Cancelada",
-    icon: Ban,
-    className: "bg-muted text-muted-foreground",
-  },
+const STATUS: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
+  processando: { label: "Em processamento", icon: Clock, className: "bg-warning/15 text-warning" },
+  autorizado: { label: "Autorizada", icon: CircleCheck, className: "bg-income/15 text-income" },
+  erro: { label: "Não autorizada", icon: CircleAlert, className: "bg-destructive/10 text-destructive" },
+  cancelado: { label: "Cancelada", icon: Ban, className: "bg-muted text-muted-foreground" },
 };
 
 function serviceDescription(items: InvoiceItem[], fallback: string) {
-  const text = items
-    .map((item) =>
-      item.quantity !== 1
-        ? `${item.quantity}× ${item.description}`
-        : item.description,
-    )
-    .join("; ");
+  const text = items.map((item) => (item.quantity !== 1 ? `${item.quantity}× ${item.description}` : item.description)).join("; ");
   return text || fallback;
 }
 
@@ -86,43 +32,23 @@ function NfseRow({ doc }: { doc: NfseDocument }) {
   return (
     <li className="grid gap-2 rounded-xl border p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-            status.className,
-          )}
-        >
+        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", status.className)}>
           <Icon className="size-3.5" /> {status.label}
         </span>
-        {doc.numero ? (
-          <span className="text-sm font-semibold">Nº {doc.numero}</span>
-        ) : null}
+        {doc.numero ? <span className="text-sm font-semibold">Nº {doc.numero}</span> : null}
         {doc.environment === "homologacao" ? (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <FlaskConical className="size-3.5" /> teste
           </span>
         ) : null}
-        <span className="ml-auto text-sm font-semibold tabular">
-          {formatMoney(doc.amountCents)}
-        </span>
+        <span className="ml-auto text-sm font-semibold tabular">{formatMoney(doc.amountCents)}</span>
       </div>
       <p className="text-xs text-muted-foreground" suppressHydrationWarning>
         Pedida em {formatDateTime(doc.createdAt)}
-        {doc.codigoVerificacao
-          ? ` · código de verificação ${doc.codigoVerificacao}`
-          : ""}
+        {doc.codigoVerificacao ? ` · código de verificação ${doc.codigoVerificacao}` : ""}
       </p>
       {doc.message ? (
-        <p
-          className={cn(
-            "text-sm",
-            doc.status === "erro"
-              ? "text-destructive"
-              : "text-muted-foreground",
-          )}
-        >
-          {doc.message}
-        </p>
+        <p className={cn("text-sm", doc.status === "erro" ? "text-destructive" : "text-muted-foreground")}>{doc.message}</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {doc.pdfUrl && doc.status !== "erro" ? (
@@ -140,12 +66,7 @@ function NfseRow({ doc }: { doc: NfseDocument }) {
           </Button>
         ) : null}
         {doc.status === "processando" || doc.status === "autorizado" ? (
-          <ActionButton
-            action={refreshInvoiceNfse}
-            fields={{ id: doc.id }}
-            size="sm"
-            variant="ghost"
-          >
+          <ActionButton action={refreshInvoiceNfse} fields={{ id: doc.id }} size="sm" variant="ghost">
             <RefreshCw /> Atualizar
           </ActionButton>
         ) : null}
@@ -156,21 +77,13 @@ function NfseRow({ doc }: { doc: NfseDocument }) {
             action={cancelInvoiceNfse}
             submitLabel="Cancelar nota"
             trigger={
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-              >
+              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
                 <Ban /> Cancelar
               </Button>
             }
           >
             <input type="hidden" name="id" value={doc.id} />
-            <FormField
-              id={`reason-${doc.id}`}
-              label="Motivo do cancelamento"
-              hint="Mínimo de 15 caracteres."
-            >
+            <FormField id={`reason-${doc.id}`} label="Motivo do cancelamento" hint="Mínimo de 15 caracteres.">
               <Textarea
                 id={`reason-${doc.id}`}
                 name="reason"
@@ -210,10 +123,7 @@ export async function NfsePanel({
 
   if (!hasPro(user) || user.isDemo) {
     return (
-      <section
-        id="nota-fiscal"
-        className="scroll-mt-24 rounded-2xl border bg-card p-5 shadow-xs"
-      >
+      <section id="nota-fiscal" className="scroll-mt-24 rounded-2xl border bg-card p-5 shadow-xs">
         {header}
         <p className="mt-1 text-sm text-muted-foreground">
           {user.isDemo
@@ -221,9 +131,7 @@ export async function NfsePanel({
             : "Com o Pro, você emite a nota fiscal (NFS-e) desta cobrança com um clique."}
         </p>
         <Button asChild variant="outline" size="sm" className="mt-3">
-          <Link
-            href={user.isDemo ? `${BASE_PATH}/cadastro` : `${APP_PATH}/plano`}
-          >
+          <Link href={user.isDemo ? `${BASE_PATH}/cadastro` : `${APP_PATH}/plano`}>
             {user.isDemo ? "Criar minha conta" : "Conhecer o Pro"}
           </Link>
         </Button>
@@ -231,24 +139,13 @@ export async function NfsePanel({
     );
   }
 
-  const [settings, docs] = await Promise.all([
-    getNfseSettings(user.id),
-    listInvoiceNfse(user.id, invoice.id),
-  ]);
+  const [settings, docs] = await Promise.all([getNfseSettings(user.id), listInvoiceNfse(user.id, invoice.id)]);
   const missing = nfseMissing(settings);
-  const active = docs.find(
-    (doc) => doc.status === "processando" || doc.status === "autorizado",
-  );
-  const defaultDescription = serviceDescription(
-    items,
-    settings?.descricaoPadrao ?? "",
-  );
+  const active = docs.find((doc) => doc.status === "processando" || doc.status === "autorizado");
+  const defaultDescription = serviceDescription(items, settings?.descricaoPadrao ?? "");
 
   return (
-    <section
-      id="nota-fiscal"
-      className="scroll-mt-24 rounded-2xl border bg-card p-5 shadow-xs"
-    >
+    <section id="nota-fiscal" className="scroll-mt-24 rounded-2xl border bg-card p-5 shadow-xs">
       {header}
       {docs.length ? (
         <ul className="mt-3 grid gap-2">
@@ -258,9 +155,7 @@ export async function NfsePanel({
         </ul>
       ) : (
         <p className="mt-1 text-sm text-muted-foreground">
-          {missing.length
-            ? "Configure uma vez e emita a NFS-e desta cobrança com um clique."
-            : "Nenhuma nota emitida para esta cobrança."}
+          {missing.length ? "Configure uma vez e emita a NFS-e desta cobrança com um clique." : "Nenhuma nota emitida para esta cobrança."}
         </p>
       )}
 
@@ -281,45 +176,25 @@ export async function NfsePanel({
           action={emitInvoiceNfse}
           submitLabel="Emitir nota"
           trigger={
-            <Button
-              className="mt-3 w-full"
-              variant={docs.length ? "outline" : "default"}
-            >
-              <Receipt />{" "}
-              {docs.length ? "Emitir de novo" : "Emitir nota fiscal"}
+            <Button className="mt-3 w-full" variant={docs.length ? "outline" : "default"}>
+              <Receipt /> {docs.length ? "Emitir de novo" : "Emitir nota fiscal"}
             </Button>
           }
         >
           <input type="hidden" name="id" value={invoice.id} />
           <div className="rounded-lg bg-muted/50 p-3 text-sm">
-            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              Tomador (cliente)
-            </p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Tomador (cliente)</p>
             <p className="font-medium">{client?.name ?? "Sem cliente"}</p>
             <p className="text-muted-foreground">
-              {client?.document
-                ? `CPF/CNPJ ${client.document}`
-                : "Sem CPF/CNPJ cadastrado (algumas cidades exigem)."}
+              {client?.document ? `CPF/CNPJ ${client.document}` : "Sem CPF/CNPJ cadastrado (algumas cidades exigem)."}
               {client?.email ? ` · ${client.email}` : ""}
             </p>
           </div>
           <FormField id="nfse-description" label="Descrição do serviço">
-            <Textarea
-              id="nfse-description"
-              name="description"
-              rows={4}
-              maxLength={2000}
-              required
-              defaultValue={defaultDescription}
-            />
+            <Textarea id="nfse-description" name="description" rows={4} maxLength={2000} required defaultValue={defaultDescription} />
           </FormField>
           <FormField id="nfse-amount" label="Valor do serviço">
-            <MoneyInput
-              id="nfse-amount"
-              name="amount"
-              required
-              defaultCents={invoice.totalCents}
-            />
+            <MoneyInput id="nfse-amount" name="amount" required defaultCents={invoice.totalCents} />
           </FormField>
         </FormDialog>
       ) : null}
@@ -328,10 +203,7 @@ export async function NfsePanel({
         <p className="mt-3 text-xs text-muted-foreground">
           <FlaskConical className="mr-1 inline size-3.5 align-[-2px]" />
           Modo de teste. Para emitir notas reais, troque para produção em{" "}
-          <Link
-            href={`${APP_PATH}/configuracoes/nota-fiscal`}
-            className="underline underline-offset-2"
-          >
+          <Link href={`${APP_PATH}/configuracoes/nota-fiscal`} className="underline underline-offset-2">
             Configurações
           </Link>
           .

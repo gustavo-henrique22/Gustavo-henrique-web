@@ -15,11 +15,8 @@ async function run(request: Request) {
   const secret = readEnv("RECEBI_CRON_SECRET");
   if (!secret) return new Response("Not found", { status: 404 });
   const url = new URL(request.url);
-  const provided =
-    url.searchParams.get("chave") ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (provided !== secret)
-    return new Response("Não autorizado", { status: 401 });
+  const provided = url.searchParams.get("chave") ?? request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (provided !== secret) return new Response("Não autorizado", { status: 401 });
   const recurring = await generateDueRecurring();
   const reminders = await sendDueReminders();
   const summaries = await sendMonthlySummaries();

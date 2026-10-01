@@ -29,9 +29,7 @@ export type NfseService = {
 export const digits = (value: string) => value.replace(/\D/g, "");
 
 export function focusBaseUrl(environment: "homologacao" | "producao"): string {
-  return environment === "producao"
-    ? "https://api.focusnfe.com.br"
-    : "https://homologacao.focusnfe.com.br";
+  return environment === "producao" ? "https://api.focusnfe.com.br" : "https://homologacao.focusnfe.com.br";
 }
 
 export function focusPath(layout: NfseLayout): string {
@@ -48,21 +46,11 @@ export function brasiliaTimestamp(date: Date): string {
 export function missingConfig(config: NfseConfig): string[] {
   const missing: string[] = [];
   if (digits(config.cnpj).length !== 14) missing.push("CNPJ (14 números)");
-  if (digits(config.codigoMunicipio).length !== 7)
-    missing.push("código IBGE do município (7 números)");
-  if (
-    config.layout === "nacional" &&
-    digits(config.codigoTributacao).length !== 6
-  )
+  if (digits(config.codigoMunicipio).length !== 7) missing.push("código IBGE do município (7 números)");
+  if (config.layout === "nacional" && digits(config.codigoTributacao).length !== 6)
     missing.push("código de tributação nacional (6 números)");
-  if (config.layout === "municipal" && !digits(config.itemListaServico))
-    missing.push("item da lista de serviço");
-  if (
-    config.layout === "municipal" &&
-    config.regime !== "mei" &&
-    config.aliquotaBp <= 0
-  )
-    missing.push("alíquota do ISS");
+  if (config.layout === "municipal" && !digits(config.itemListaServico)) missing.push("item da lista de serviço");
+  if (config.layout === "municipal" && config.regime !== "mei" && config.aliquotaBp <= 0) missing.push("alíquota do ISS");
   return missing;
 }
 
@@ -78,13 +66,9 @@ function opcaoSimples(regime: NfseRegime): number {
   return regime === "mei" ? 2 : regime === "simples" ? 3 : 1;
 }
 
-export function buildNfsePayload(
-  config: NfseConfig,
-  service: NfseService,
-): Record<string, unknown> {
+export function buildNfsePayload(config: NfseConfig, service: NfseService): Record<string, unknown> {
   const amount = Math.round(service.amountCents) / 100;
-  const description =
-    service.description.trim().slice(0, 2000) || "Prestação de serviços";
+  const description = service.description.trim().slice(0, 2000) || "Prestação de serviços";
   const doc = tomadorDocument(service.client.document);
   const municipio = digits(config.codigoMunicipio);
 
@@ -94,9 +78,7 @@ export function buildNfsePayload(
       data_competencia: brasiliaTimestamp(service.issuedAt).slice(0, 10),
       codigo_municipio_emissora: municipio,
       cnpj_prestador: digits(config.cnpj),
-      ...(digits(config.inscricaoMunicipal)
-        ? { inscricao_municipal_prestador: digits(config.inscricaoMunicipal) }
-        : {}),
+      ...(digits(config.inscricaoMunicipal) ? { inscricao_municipal_prestador: digits(config.inscricaoMunicipal) } : {}),
       codigo_opcao_simples_nacional: opcaoSimples(config.regime),
       regime_especial_tributacao: 0,
       ...(doc.cpf ? { cpf_tomador: doc.cpf } : {}),
@@ -115,24 +97,14 @@ export function buildNfsePayload(
     data_emissao: brasiliaTimestamp(service.issuedAt),
     natureza_operacao: "1",
     optante_simples_nacional: config.regime !== "outro",
-    prestador: {
-      cnpj: digits(config.cnpj),
-      inscricao_municipal: digits(config.inscricaoMunicipal),
-      codigo_municipio: municipio,
-    },
-    tomador: {
-      ...doc,
-      razao_social: service.client.name.slice(0, 150),
-      ...(service.client.email ? { email: service.client.email } : {}),
-    },
+    prestador: { cnpj: digits(config.cnpj), inscricao_municipal: digits(config.inscricaoMunicipal), codigo_municipio: municipio },
+    tomador: { ...doc, razao_social: service.client.name.slice(0, 150), ...(service.client.email ? { email: service.client.email } : {}) },
     servico: {
       aliquota: config.aliquotaBp / 100,
       discriminacao: description,
       iss_retido: false,
       item_lista_servico: digits(config.itemListaServico),
-      ...(config.codigoTributacao
-        ? { codigo_tributario_municipio: config.codigoTributacao.trim() }
-        : {}),
+      ...(config.codigoTributacao ? { codigo_tributario_municipio: config.codigoTributacao.trim() } : {}),
       valor_servicos: amount,
     },
   };
@@ -140,28 +112,13 @@ export function buildNfsePayload(
 
 export type NfseStatus = "processando" | "autorizado" | "erro" | "cancelado";
 
-export type NfseResult = {
-  status: NfseStatus;
-  numero: string;
-  codigoVerificacao: string;
-  pdfUrl: string;
-  xmlUrl: string;
-  message: string;
-};
+export type NfseResult = { status: NfseStatus; numero: string; codigoVerificacao: string; pdfUrl: string; xmlUrl: string; message: string };
 
-const text = (value: unknown) =>
-  typeof value === "string"
-    ? value
-    : typeof value === "number"
-      ? String(value)
-      : "";
+const text = (value: unknown) => (typeof value === "string" ? value : typeof value === "number" ? String(value) : "");
 
 /** Lê a resposta da Focus NFe (emissão, consulta ou cancelamento). */
 export function parseFocusResponse(body: unknown, baseUrl: string): NfseResult {
-  const b = (body && typeof body === "object" ? body : {}) as Record<
-    string,
-    unknown
-  >;
+  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
   const raw = text(b.status);
   const status: NfseStatus =
     raw === "autorizado"
@@ -171,29 +128,17 @@ export function parseFocusResponse(body: unknown, baseUrl: string): NfseResult {
         : raw.startsWith("erro") || b.erros || b.codigo
           ? "erro"
           : "processando";
-  const errors = Array.isArray(b.erros)
-    ? (b.erros as Record<string, unknown>[])
-    : [];
+  const errors = Array.isArray(b.erros) ? (b.erros as Record<string, unknown>[]) : [];
   const message = errors.length
-    ? errors
-        .map((e) =>
-          [text(e.mensagem), text(e.correcao)].filter(Boolean).join(" — "),
-        )
-        .join(" · ")
+    ? errors.map((e) => [text(e.mensagem), text(e.correcao)].filter(Boolean).join(" — ")).join(" · ")
     : text(b.mensagem) || text(b.mensagem_sefaz);
   const absolute = (path: string) =>
-    !path
-      ? ""
-      : /^https?:\/\//.test(path)
-        ? path
-        : `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
+    !path ? "" : /^https?:\/\//.test(path) ? path : `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
   return {
     status,
     numero: text(b.numero),
     codigoVerificacao: text(b.codigo_verificacao),
-    pdfUrl: absolute(
-      text(b.url_danfse) || text(b.caminho_pdf_nota_fiscal) || text(b.url),
-    ),
+    pdfUrl: absolute(text(b.url_danfse) || text(b.caminho_pdf_nota_fiscal) || text(b.url)),
     xmlUrl: absolute(text(b.caminho_xml_nota_fiscal)),
     message: message.slice(0, 1000),
   };

@@ -1,16 +1,4 @@
-import {
-  ArrowLeft,
-  Ban,
-  CheckCircle2,
-  Copy,
-  FileCheck2,
-  Pencil,
-  Repeat,
-  RotateCcw,
-  Send,
-  Trash2,
-  Undo2,
-} from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Copy, FileCheck2, Pencil, Repeat, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -62,11 +50,8 @@ export default async function InvoicePage({
   if (!data) notFound();
   const { invoice, client, items } = data;
   const events = await listEvents(user.id, invoice.id);
-  const canRepeat =
-    hasPro(user) && !!invoice.clientId && invoice.status !== "cancelada";
-  const [clientOptions, projectRows] = canRepeat
-    ? await Promise.all([listClients(user.id), listProjects(user.id)])
-    : [[], []];
+  const canRepeat = hasPro(user) && !!invoice.clientId && invoice.status !== "cancelada";
+  const [clientOptions, projectRows] = canRepeat ? await Promise.all([listClients(user.id), listProjects(user.id)]) : [[], []];
 
   const number = String(invoice.number).padStart(4, "0");
   const link = `${await siteOrigin()}${BASE_PATH}/c/${invoice.publicToken}`;
@@ -94,29 +79,16 @@ export default async function InvoicePage({
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <InvoiceDocument
-          invoice={invoice}
-          items={items}
-          client={client}
-          owner={user}
-          logoUrl={logoUrlFor(user)}
-          className="self-start"
-        />
+        <InvoiceDocument invoice={invoice} items={items} client={client} owner={user} logoUrl={logoUrlFor(user)} className="self-start" />
 
         <aside className="grid content-start gap-4">
           {invoice.status === "rascunho" ? (
             <section className="rounded-2xl border bg-card p-5 shadow-xs">
               <h2 className="font-bold">Rascunho</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                O cliente ainda não consegue abrir esta cobrança. Libere para
-                gerar o link.
+                O cliente ainda não consegue abrir esta cobrança. Libere para gerar o link.
               </p>
-              <ActionButton
-                action={setInvoiceStatus}
-                fields={{ id: invoice.id, status: "enviada" }}
-                className="mt-4 w-full"
-                size="lg"
-              >
+              <ActionButton action={setInvoiceStatus} fields={{ id: invoice.id, status: "enviada" }} className="mt-4 w-full" size="lg">
                 <Send /> Liberar e gerar link
               </ActionButton>
             </section>
@@ -128,25 +100,16 @@ export default async function InvoicePage({
               description="O cliente abre o link, vê os detalhes e paga com Pix. Não precisa de cadastro."
               whatsappHref={whatsappHref}
               mailHref={mailHref}
-              emailAction={
-                canEmail && invoice.status === "enviada"
-                  ? { action: emailInvoice, fields: { id: invoice.id } }
-                  : null
-              }
+              emailAction={canEmail && invoice.status === "enviada" ? { action: emailInvoice, fields: { id: invoice.id } } : null}
               highlight={enviar === "1" && invoice.status === "enviada"}
             />
           ) : null}
 
           {invoice.status === "enviada" ? (
             <section className="rounded-2xl border bg-card p-5 shadow-xs">
-              <h2 className="font-bold">
-                {display === "vencida"
-                  ? "Cobrança vencida"
-                  : "Aguardando pagamento"}
-              </h2>
+              <h2 className="font-bold">{display === "vencida" ? "Cobrança vencida" : "Aguardando pagamento"}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Quando o dinheiro cair na sua conta, marque como paga. A receita
-                entra automaticamente nos lançamentos.
+                Quando o dinheiro cair na sua conta, marque como paga. A receita entra automaticamente nos lançamentos.
               </p>
               <FormDialog
                 title={`Registrar pagamento da #${number}`}
@@ -154,32 +117,17 @@ export default async function InvoicePage({
                 action={markInvoicePaid}
                 submitLabel="Confirmar pagamento"
                 trigger={
-                  <Button
-                    className="mt-4 w-full bg-income text-white hover:bg-income/90"
-                    size="lg"
-                  >
+                  <Button className="mt-4 w-full bg-income text-white hover:bg-income/90" size="lg">
                     <CheckCircle2 /> Marcar como paga
                   </Button>
                 }
               >
                 <input type="hidden" name="id" value={invoice.id} />
                 <FormField id="paidAt" label="Data do pagamento">
-                  <Input
-                    id="paidAt"
-                    name="paidAt"
-                    type="date"
-                    required
-                    defaultValue={todayISO()}
-                  />
+                  <Input id="paidAt" name="paidAt" type="date" required defaultValue={todayISO()} />
                 </FormField>
                 <FormField id="category" label="Categoria da receita">
-                  <Select
-                    id="category"
-                    name="category"
-                    defaultValue={
-                      invoice.projectId ? "Projeto" : INCOME_CATEGORIES[0]
-                    }
-                  >
+                  <Select id="category" name="category" defaultValue={invoice.projectId ? "Projeto" : INCOME_CATEGORIES[0]}>
                     {INCOME_CATEGORIES.map((c) => (
                       <option key={c}>{c}</option>
                     ))}
@@ -187,12 +135,7 @@ export default async function InvoicePage({
                 </FormField>
                 {canEmail ? (
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      name="sendReceipt"
-                      defaultChecked
-                      className="size-4 accent-[var(--primary)]"
-                    />
+                    <input type="checkbox" name="sendReceipt" defaultChecked className="size-4 accent-[var(--primary)]" />
                     Enviar o recibo por e-mail para {client?.email}
                   </label>
                 ) : null}
@@ -203,19 +146,11 @@ export default async function InvoicePage({
           {invoice.status === "paga" ? (
             <section className="rounded-2xl border border-income/30 bg-income/10 p-5">
               <h2 className="flex items-center gap-2 font-bold text-income">
-                <CheckCircle2 className="size-5" /> Paga em{" "}
-                {formatDate(invoice.paidAt)}
+                <CheckCircle2 className="size-5" /> Paga em {formatDate(invoice.paidAt)}
               </h2>
-              <p className="mt-1 text-sm">
-                A receita de {formatMoney(invoice.totalCents)} já está nos seus
-                lançamentos.
-              </p>
+              <p className="mt-1 text-sm">A receita de {formatMoney(invoice.totalCents)} já está nos seus lançamentos.</p>
               <Button asChild size="sm" className="mt-3 mr-2">
-                <a
-                  href={`${BASE_PATH}/c/${invoice.publicToken}/recibo`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={`${BASE_PATH}/c/${invoice.publicToken}/recibo`} target="_blank" rel="noreferrer">
                   <FileCheck2 /> Ver recibo
                 </a>
               </Button>
@@ -237,32 +172,16 @@ export default async function InvoicePage({
           {invoice.status === "cancelada" ? (
             <section className="rounded-2xl border bg-card p-5 shadow-xs">
               <h2 className="font-bold">Cobrança cancelada</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                O link mostra ao cliente que ela foi cancelada.
-              </p>
-              <ActionButton
-                action={setInvoiceStatus}
-                fields={{ id: invoice.id, status: "enviada" }}
-                variant="outline"
-                className="mt-3"
-              >
+              <p className="mt-1 text-sm text-muted-foreground">O link mostra ao cliente que ela foi cancelada.</p>
+              <ActionButton action={setInvoiceStatus} fields={{ id: invoice.id, status: "enviada" }} variant="outline" className="mt-3">
                 <RotateCcw /> Reativar
               </ActionButton>
             </section>
           ) : null}
 
-          <NfsePanel
-            user={user}
-            invoice={invoice}
-            client={client}
-            items={items}
-          />
+          <NfsePanel user={user} invoice={invoice} client={client} items={items} />
 
-          <DocumentTimeline
-            events={events}
-            viewCount={invoice.viewCount}
-            viewedAt={invoice.viewedAt}
-          />
+          <DocumentTimeline events={events} viewCount={invoice.viewCount} viewedAt={invoice.viewedAt} />
 
           <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-xs">
             <h2 className="mb-1 font-bold">Mais ações</h2>
@@ -273,28 +192,17 @@ export default async function InvoicePage({
                 </Link>
               </Button>
             ) : null}
-            <ActionButton
-              action={duplicateInvoice}
-              fields={{ id: invoice.id }}
-              variant="outline"
-              className="justify-start"
-            >
+            <ActionButton action={duplicateInvoice} fields={{ id: invoice.id }} variant="outline" className="justify-start">
               <Copy /> Duplicar
             </ActionButton>
             {canRepeat ? (
               <RecurringDialog
                 clients={clientOptions.map((c) => ({ id: c.id, name: c.name }))}
-                projects={projectRows.map((r) => ({
-                  id: r.project.id,
-                  name: r.project.name,
-                }))}
+                projects={projectRows.map((r) => ({ id: r.project.id, name: r.project.name }))}
                 preset={{
                   clientId: invoice.clientId,
                   projectId: invoice.projectId,
-                  description:
-                    items.length === 1
-                      ? items[0].description
-                      : `Serviço mensal — ${ownerName}`,
+                  description: items.length === 1 ? items[0].description : `Serviço mensal — ${ownerName}`,
                   amountCents: invoice.totalCents,
                   dayOfMonth: Number(invoice.issueDate.slice(8, 10)),
                 }}
@@ -330,10 +238,7 @@ export default async function InvoicePage({
               }
               confirmLabel="Excluir"
               trigger={
-                <Button
-                  variant="outline"
-                  className="justify-start text-destructive hover:text-destructive"
-                >
+                <Button variant="outline" className="justify-start text-destructive hover:text-destructive">
                   <Trash2 /> Excluir
                 </Button>
               }

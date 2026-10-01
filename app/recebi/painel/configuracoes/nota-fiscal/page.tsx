@@ -1,10 +1,4 @@
-import {
-  CircleAlert,
-  CircleCheck,
-  ExternalLink,
-  FlaskConical,
-  PlugZap,
-} from "lucide-react";
+import { CircleAlert, CircleCheck, ExternalLink, FlaskConical, PlugZap } from "lucide-react";
 import type { Metadata } from "next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,10 +7,7 @@ import { ActionForm } from "@/components/recebi/action-form";
 import { FormField, Select } from "@/components/recebi/fields";
 import { ProNotice } from "@/components/recebi/pro-notice";
 import { SettingsSection } from "@/components/recebi/settings-section";
-import {
-  saveNfseSettings,
-  testNfseConnection,
-} from "@/lib/recebi/actions/nfse";
+import { saveNfseSettings, testNfseConnection } from "@/lib/recebi/actions/nfse";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { getNfseSettings, nfseMissing, nfseToken } from "@/lib/recebi/nfse";
 import { cn } from "@/lib/utils";
@@ -30,9 +21,7 @@ const STEPS = [
 ];
 
 function formatCnpj(value: string) {
-  return value.length === 14
-    ? value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
-    : value;
+  return value.length === 14 ? value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : value;
 }
 
 export default async function InvoiceTaxSettingsPage() {
@@ -80,9 +69,8 @@ export default async function InvoiceTaxSettingsPage() {
           Abrir a Focus NFe <ExternalLink className="size-3.5" />
         </a>
         <p className="mt-3 text-xs text-muted-foreground">
-          A Focus NFe cobra pelo serviço direto de você. Os dados da nota (seu
-          CNPJ, nome e CPF/CNPJ do cliente, valor e descrição) são enviados a
-          ela só quando você emite.
+          A Focus NFe cobra pelo serviço direto de você. Os dados da nota (seu CNPJ, nome e CPF/CNPJ do cliente, valor e descrição) são
+          enviados a ela só quando você emite.
         </p>
       </SettingsSection>
 
@@ -91,53 +79,28 @@ export default async function InvoiceTaxSettingsPage() {
         title="Dados para emitir"
         description={
           <>
-            Confira os códigos com seu contador ou no guia da sua cidade na
-            Focus NFe.
+            Confira os códigos com seu contador ou no guia da sua cidade na Focus NFe.
             <span
               className={cn(
                 "mt-3 flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                missing.length
-                  ? "bg-warning/15 text-warning"
-                  : "bg-income/15 text-income",
+                missing.length ? "bg-warning/15 text-warning" : "bg-income/15 text-income",
               )}
             >
-              {missing.length ? (
-                <CircleAlert className="size-3.5" />
-              ) : (
-                <CircleCheck className="size-3.5" />
-              )}
-              {missing.length
-                ? "Falta preencher"
-                : production
-                  ? "Pronto · notas reais"
-                  : "Pronto · modo de teste"}
+              {missing.length ? <CircleAlert className="size-3.5" /> : <CircleCheck className="size-3.5" />}
+              {missing.length ? "Falta preencher" : production ? "Pronto · notas reais" : "Pronto · modo de teste"}
             </span>
-            {missing.length ? (
-              <span className="mt-2 block text-xs">
-                Falta: {missing.join(", ")}.
-              </span>
-            ) : null}
+            {missing.length ? <span className="mt-2 block text-xs">Falta: {missing.join(", ")}.</span> : null}
           </>
         }
       >
         <ActionForm action={saveNfseSettings} submitLabel="Salvar configuração">
           <div className="group/nfse grid gap-5">
             <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm font-medium">
-                Padrão da nota
-              </legend>
+              <legend className="mb-2 text-sm font-medium">Padrão da nota</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
-                  {
-                    value: "nacional",
-                    title: "NFS-e Nacional",
-                    text: "Obrigatória para MEI e usada por cada vez mais cidades.",
-                  },
-                  {
-                    value: "municipal",
-                    title: "Sistema da prefeitura",
-                    text: "Para cidades com sistema próprio (ME, EPP e outros).",
-                  },
+                  { value: "nacional", title: "NFS-e Nacional", text: "Obrigatória para MEI e usada por cada vez mais cidades." },
+                  { value: "municipal", title: "Sistema da prefeitura", text: "Para cidades com sistema próprio (ME, EPP e outros)." },
                 ].map((option) => (
                   <label
                     key={option.value}
@@ -152,12 +115,8 @@ export default async function InvoiceTaxSettingsPage() {
                       className="mt-1 size-4 accent-[var(--primary)]"
                     />
                     <span>
-                      <span className="block text-sm font-semibold">
-                        {option.title}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {option.text}
-                      </span>
+                      <span className="block text-sm font-semibold">{option.title}</span>
+                      <span className="block text-xs text-muted-foreground">{option.text}</span>
                     </span>
                   </label>
                 ))}
@@ -168,17 +127,9 @@ export default async function InvoiceTaxSettingsPage() {
               <FormField
                 id="environment"
                 label="Ambiente"
-                hint={
-                  production
-                    ? "Notas reais, com valor fiscal."
-                    : "Notas de teste, sem valor fiscal. Comece por aqui."
-                }
+                hint={production ? "Notas reais, com valor fiscal." : "Notas de teste, sem valor fiscal. Comece por aqui."}
               >
-                <Select
-                  id="environment"
-                  name="environment"
-                  defaultValue={settings?.environment ?? "homologacao"}
-                >
+                <Select id="environment" name="environment" defaultValue={settings?.environment ?? "homologacao"}>
                   <option value="homologacao">Homologação (teste)</option>
                   <option value="producao">Produção (notas reais)</option>
                 </Select>
@@ -211,21 +162,13 @@ export default async function InvoiceTaxSettingsPage() {
                 />
               </FormField>
               <FormField id="regime" label="Regime">
-                <Select
-                  id="regime"
-                  name="regime"
-                  defaultValue={settings?.regime ?? "mei"}
-                >
+                <Select id="regime" name="regime" defaultValue={settings?.regime ?? "mei"}>
                   <option value="mei">MEI</option>
                   <option value="simples">Simples Nacional (ME/EPP)</option>
                   <option value="outro">Outro (Lucro Presumido/Real)</option>
                 </Select>
               </FormField>
-              <FormField
-                id="codigoMunicipio"
-                label="Código IBGE da cidade"
-                hint="7 números. Ex.: São Paulo é 3550308."
-              >
+              <FormField id="codigoMunicipio" label="Código IBGE da cidade" hint="7 números. Ex.: São Paulo é 3550308.">
                 <Input
                   id="codigoMunicipio"
                   name="codigoMunicipio"
@@ -234,27 +177,15 @@ export default async function InvoiceTaxSettingsPage() {
                   defaultValue={settings?.codigoMunicipio ?? ""}
                 />
               </FormField>
-              <FormField
-                id="inscricaoMunicipal"
-                label="Inscrição municipal"
-                hint="Se a sua cidade exigir."
-              >
-                <Input
-                  id="inscricaoMunicipal"
-                  name="inscricaoMunicipal"
-                  defaultValue={settings?.inscricaoMunicipal ?? ""}
-                />
+              <FormField id="inscricaoMunicipal" label="Inscrição municipal" hint="Se a sua cidade exigir.">
+                <Input id="inscricaoMunicipal" name="inscricaoMunicipal" defaultValue={settings?.inscricaoMunicipal ?? ""} />
               </FormField>
               <FormField
                 id="codigoTributacao"
                 label="Código de tributação"
                 hint="Na NFS-e Nacional: 6 números (ex.: 010701). No sistema municipal: o código da prefeitura, se houver."
               >
-                <Input
-                  id="codigoTributacao"
-                  name="codigoTributacao"
-                  defaultValue={settings?.codigoTributacao ?? ""}
-                />
+                <Input id="codigoTributacao" name="codigoTributacao" defaultValue={settings?.codigoTributacao ?? ""} />
               </FormField>
               <FormField
                 id="itemListaServico"
@@ -262,11 +193,7 @@ export default async function InvoiceTaxSettingsPage() {
                 hint="Só no sistema da prefeitura. Ex.: 1.07 (suporte em informática)."
                 className="group-has-[#layout-nacional:checked]/nfse:opacity-60"
               >
-                <Input
-                  id="itemListaServico"
-                  name="itemListaServico"
-                  defaultValue={settings?.itemListaServico ?? ""}
-                />
+                <Input id="itemListaServico" name="itemListaServico" defaultValue={settings?.itemListaServico ?? ""} />
               </FormField>
               <FormField
                 id="aliquota"
@@ -279,11 +206,7 @@ export default async function InvoiceTaxSettingsPage() {
                   name="aliquota"
                   inputMode="decimal"
                   placeholder="0"
-                  defaultValue={
-                    settings?.aliquotaBp
-                      ? String(settings.aliquotaBp / 100).replace(".", ",")
-                      : ""
-                  }
+                  defaultValue={settings?.aliquotaBp ? String(settings.aliquotaBp / 100).replace(".", ",") : ""}
                 />
               </FormField>
             </div>
@@ -311,18 +234,12 @@ export default async function InvoiceTaxSettingsPage() {
         description="Confere se o token funciona no ambiente escolhido, sem emitir nenhuma nota."
       >
         <div className="flex flex-wrap items-center gap-3">
-          <ActionButton
-            action={testNfseConnection}
-            fields={{}}
-            variant="outline"
-            disabled={!token}
-          >
+          <ActionButton action={testNfseConnection} fields={{}} variant="outline" disabled={!token}>
             <PlugZap /> Testar conexão
           </ActionButton>
           {!production && token ? (
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <FlaskConical className="size-4" /> Modo de teste: as notas não
-              têm valor fiscal.
+              <FlaskConical className="size-4" /> Modo de teste: as notas não têm valor fiscal.
             </span>
           ) : null}
         </div>
