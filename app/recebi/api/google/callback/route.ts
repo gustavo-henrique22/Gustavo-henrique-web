@@ -10,6 +10,7 @@ import { completeLogin } from "@/lib/recebi/login";
 import { sendWelcomeEmail } from "@/lib/recebi/notifications";
 import { siteOrigin } from "@/lib/recebi/origin";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/recebi/referral";
+import { startLoginChallenge, twoFactorEnabled } from "@/lib/recebi/two-factor";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,11 @@ export async function GET(request: Request) {
         .set({
           googleSub: profile.sub,
           emailVerifiedAt: user.emailVerifiedAt ?? new Date().toISOString(),
-          ...(unverified ? { passwordHash: GOOGLE_ONLY_PASSWORD } : {}),
+          // Pelo mesmo motivo, uma verificação em duas etapas ativada nessa conta também é desfeita.
+          ...(unverified ? { passwordHash: GOOGLE_ONLY_PASSWORD, totpSecret: null, totpEnabledAt: null, totpRecoveryCodes: "" } : {}),
         })
         .where(eq(users.id, user.id));
+      if (unverified) user = { ...user, totpSecret: null, totpEnabledAt: null, totpRecoveryCodes: "" };
       if (unverified) {
         await destroyAllSessions(user.id);
         await notify(user.id, {
@@ -77,6 +80,10 @@ export async function GET(request: Request) {
     }
   }
 
+  if (!isNew && twoFactorEnabled(user)) {
+    await startLoginChallenge(user.id, "google", APP_PATH);
+    return Response.redirect(`${origin}${BASE_PATH}/verificar-acesso`, 302);
+  }
   await completeLogin(user, isNew ? "cadastro" : "google");
   if (isNew) await sendWelcomeEmail(user);
   return Response.redirect(`${origin}${APP_PATH}${isNew ? "?bem-vindo=1" : ""}`, 302);

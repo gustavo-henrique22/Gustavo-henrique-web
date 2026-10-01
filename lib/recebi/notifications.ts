@@ -80,6 +80,29 @@ export async function sendPasswordChangedEmail(user: Pick<User, "name" | "email"
   });
 }
 
+/** Aviso quando a verificação em duas etapas é ligada ou desligada. */
+export async function sendTwoFactorEmail(user: Pick<User, "name" | "email" | "isDemo">, enabled: boolean) {
+  if (!emailEnabled() || user.isDemo) return;
+  const origin = await siteOrigin();
+  await sendEmail({
+    to: user.email,
+    subject: enabled ? "Verificação em duas etapas ativada no Recebi" : "Verificação em duas etapas desativada no Recebi",
+    html: emailLayout({
+      preheader: enabled ? "Sua conta ficou mais protegida." : "Se não foi você, aja agora.",
+      title: enabled ? "Verificação em duas etapas ativada" : "Verificação em duas etapas desativada",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}. ${
+          enabled
+            ? "A partir de agora, além da senha, o Recebi pede o código do seu app autenticador para entrar. Guarde os códigos de recuperação em um lugar seguro."
+            : "Sua conta voltou a pedir só a senha para entrar."
+        }`,
+        "Se não foi você, troque sua senha e confira os aparelhos conectados agora mesmo.",
+      ],
+      cta: { label: "Ver a segurança da conta", url: `${origin}${BASE_PATH}/painel/configuracoes/seguranca` },
+    }),
+  });
+}
+
 /** Alerta de login em um aparelho que a conta nunca usou. */
 export async function sendNewDeviceEmail(user: Pick<User, "name" | "email" | "isDemo">, device: string, ip: string) {
   if (!emailEnabled() || user.isDemo) return;

@@ -4,6 +4,8 @@ export type ActionState = {
   message?: string;
   /** Muda a cada envio bem-sucedido, para o formulário saber que deve reagir. */
   at?: number;
+  /** Códigos de recuperação da verificação em duas etapas, mostrados uma única vez. */
+  codes?: string[];
 };
 
 export const initialActionState: ActionState = {};

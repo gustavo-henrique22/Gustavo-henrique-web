@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPasswordReset, resetPassword, signIn, signUp } from "@/lib/recebi/actions/auth";
+import { verifyLoginCode } from "@/lib/recebi/actions/two-factor";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { FormError } from "./form-error";
 import { SubmitButton } from "./submit-button";
@@ -70,7 +71,7 @@ export function SignUpForm({ referralCode }: { referralCode?: string }) {
       <Field label={<Label htmlFor="email">E-mail</Label>}>
         <Input id="email" name="email" type="email" autoComplete="email" required placeholder="voce@email.com" />
       </Field>
-      <Field label={<Label htmlFor="password">Senha</Label>} hint="Mínimo de 8 caracteres.">
+      <Field label={<Label htmlFor="password">Senha</Label>} hint="Mínimo de 8 caracteres. Senhas comuns ou vazadas não são aceitas.">
         <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
       </Field>
       <label className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -132,6 +133,36 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <FormError message={state.error} />
       <SubmitButton pending={pending} size="lg" className="w-full">
         Salvar nova senha
+      </SubmitButton>
+    </form>
+  );
+}
+
+/** Segunda etapa do login: código do app autenticador ou um código de recuperação. */
+export function VerifyLoginForm() {
+  const { state, pending, onSubmit } = useActionForm(verifyLoginCode);
+  return (
+    <form onSubmit={onSubmit} className="grid gap-4">
+      <Field
+        label={<Label htmlFor="code">Código de verificação</Label>}
+        hint="Os 6 números do app autenticador. Sem o celular? Use um dos códigos de recuperação (ex.: abcde-fghij)."
+      >
+        <Input
+          id="code"
+          name="code"
+          autoComplete="one-time-code"
+          autoCapitalize="off"
+          spellCheck={false}
+          required
+          autoFocus
+          maxLength={20}
+          placeholder="000000"
+          className="h-12 text-center text-xl font-semibold tracking-[0.3em] tabular"
+        />
+      </Field>
+      <FormError message={state.error} />
+      <SubmitButton pending={pending} size="lg" className="w-full" pendingLabel="Verificando…">
+        Verificar e entrar
       </SubmitButton>
     </form>
   );

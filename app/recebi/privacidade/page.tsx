@@ -18,6 +18,10 @@ const PROCESSORS: [string, string][] = [
     "Assistente com IA: quando você faz uma pergunta, enviamos o texto dela e um resumo numérico das suas finanças. Esses dados não são usados para treinar a IA.",
   ],
   ["Focus NFe", "Emissão de nota fiscal de serviço, apenas se você ativar e conectar a sua conta."],
+  [
+    "Have I Been Pwned",
+    "Quando você cria ou troca a senha, conferimos se ela já vazou na internet. Só os 5 primeiros caracteres de um código (hash) da senha são enviados; a senha nunca sai do Recebi.",
+  ],
 ];
 
 const COOKIES: [string, string][] = [

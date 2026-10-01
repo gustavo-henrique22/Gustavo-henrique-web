@@ -20,6 +20,8 @@ import { APP_PATH, BASE_PATH } from "../config";
 import { sendEmailVerification } from "../email-verification";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
+import { passwordProblem } from "../password-policy";
+import { takeRateLimit } from "../rate-limit";
 import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
 import { logSecurityEvent } from "../security";
 
@@ -103,8 +105,11 @@ export async function changePassword(_: ActionState, formData: FormData): Promis
   const next = String(formData.get("next") ?? "");
   // Contas criadas pelo Google ainda não têm senha: podem criar uma sem informar a atual.
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
+  if (!(await takeRateLimit(`senha-atual:${user.id}`, 10, 3_600_000))) return fail("Muitas tentativas. Tente de novo em uma hora.");
   if (!googleOnly && !(await verifyPassword(current, user.passwordHash))) return fail("A senha atual está incorreta.");
-  if (next.length < 8) return fail("A nova senha precisa ter pelo menos 8 caracteres.");
+  const problem = await passwordProblem(next, user);
+  if (problem) return fail(problem);
+  if (!googleOnly && current === next) return fail("A nova senha precisa ser diferente da atual.");
 
   await getDb()
     .update(users)
@@ -126,6 +131,7 @@ export async function deleteAccount(_: ActionState, formData: FormData): Promise
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const password = String(formData.get("password") ?? "");
   if (text(formData, "confirm", 20).toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
+  if (!(await takeRateLimit(`senha-atual:${user.id}`, 10, 3_600_000))) return fail("Muitas tentativas. Tente de novo em uma hora.");
   if (user.passwordHash !== GOOGLE_ONLY_PASSWORD && !(await verifyPassword(password, user.passwordHash))) return fail("Senha incorreta.");
   await destroySession();
   await removeUserFiles(user.id);

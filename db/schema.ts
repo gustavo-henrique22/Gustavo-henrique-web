@@ -3,14 +3,7 @@
 // competência como texto `YYYY-MM-DD`, para evitar erros de arredondamento e
 // de fuso horário.
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const createdAt = () =>
   text("created_at")
@@ -31,9 +24,7 @@ export const users = sqliteTable(
     pixKey: text("pix_key").notNull().default(""),
     monthlyGoalCents: integer("monthly_goal_cents").notNull().default(0),
     taxRateBp: integer("tax_rate_bp").notNull().default(600),
-    annualLimitCents: integer("annual_limit_cents")
-      .notNull()
-      .default(8_100_000),
+    annualLimitCents: integer("annual_limit_cents").notNull().default(8_100_000),
     plan: text("plan", { enum: ["free", "pro"] })
       .notNull()
       .default("free"),
@@ -44,24 +35,18 @@ export const users = sqliteTable(
     /** Identificador da conta Google, quando a pessoa entra com o Google. */
     googleSub: text("google_sub"),
     /** Enviar lembretes automáticos por e-mail aos clientes com cobranças em aberto. */
-    autoReminders: integer("auto_reminders", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    autoReminders: integer("auto_reminders", { mode: "boolean" }).notNull().default(true),
     /** Chave do arquivo de logo no armazenamento (R2), usada nas cobranças do plano Pro. */
     logoKey: text("logo_key"),
     /** Valor da hora usado no controle de horas (centavos). */
     hourlyRateCents: integer("hourly_rate_cents").notNull().default(0),
     /** Endereço da página pública: /recebi/p/<slug>. */
     slug: text("slug"),
-    publicProfile: integer("public_profile", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    publicProfile: integer("public_profile", { mode: "boolean" }).notNull().default(false),
     headline: text("headline").notNull().default(""),
     bio: text("bio").notNull().default(""),
     /** Receber o resumo do mês por e-mail. */
-    monthlySummary: integer("monthly_summary", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    monthlySummary: integer("monthly_summary", { mode: "boolean" }).notNull().default(true),
     /** Quando a pessoa confirmou o e-mail pelo link enviado. */
     emailVerifiedAt: text("email_verified_at"),
     /** Código para o "Indique e ganhe" e quem indicou esta conta. */
@@ -119,9 +104,7 @@ export const loginAttempts = sqliteTable(
     email: text("email").notNull(),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("login_attempts_email_idx").on(table.email, table.createdAt),
-  ],
+  (table) => [index("login_attempts_email_idx").on(table.email, table.createdAt)],
 );
 
 export const clients = sqliteTable(
@@ -149,9 +132,7 @@ export const projects = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "set null",
-    }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     status: text("status", { enum: ["ativo", "pausado", "concluido"] })
       .notNull()
@@ -173,17 +154,11 @@ export const invoices = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "set null",
-    }),
-    projectId: text("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
     number: integer("number").notNull(),
     publicToken: text("public_token").notNull(),
-    status: text("status", {
-      enum: ["rascunho", "enviada", "paga", "cancelada"],
-    })
+    status: text("status", { enum: ["rascunho", "enviada", "paga", "cancelada"] })
       .notNull()
       .default("rascunho"),
     issueDate: text("issue_date").notNull(),
@@ -238,15 +213,9 @@ export const transactions = sqliteTable(
     status: text("status", { enum: ["pago", "pendente"] })
       .notNull()
       .default("pago"),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "set null",
-    }),
-    projectId: text("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
-    invoiceId: text("invoice_id").references(() => invoices.id, {
-      onDelete: "set null",
-    }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     /** Comprovante anexado (arquivo no R2). */
     attachmentKey: text("attachment_key"),
     attachmentName: text("attachment_name"),
@@ -271,20 +240,12 @@ export const quotes = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "set null",
-    }),
-    projectId: text("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
-    invoiceId: text("invoice_id").references(() => invoices.id, {
-      onDelete: "set null",
-    }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     number: integer("number").notNull(),
     publicToken: text("public_token").notNull(),
-    status: text("status", {
-      enum: ["rascunho", "enviado", "aprovado", "recusado"],
-    })
+    status: text("status", { enum: ["rascunho", "enviado", "aprovado", "recusado"] })
       .notNull()
       .default("rascunho"),
     issueDate: text("issue_date").notNull(),
@@ -338,9 +299,7 @@ export const invoiceReminders = sqliteTable(
     kind: text("kind", { enum: ["antes", "vencimento", "atraso"] }).notNull(),
     sentAt: createdAt(),
   },
-  (table) => [
-    uniqueIndex("invoice_reminders_unique").on(table.invoiceId, table.kind),
-  ],
+  (table) => [uniqueIndex("invoice_reminders_unique").on(table.invoiceId, table.kind)],
 );
 
 /** Pagamentos do plano Pro recebidos pelo Mercado Pago. */
@@ -368,17 +327,13 @@ export const documentEvents = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    documentType: text("document_type", {
-      enum: ["orcamento", "cobranca"],
-    }).notNull(),
+    documentType: text("document_type", { enum: ["orcamento", "cobranca"] }).notNull(),
     documentId: text("document_id").notNull(),
     type: text("type").notNull(),
     detail: text("detail").notNull().default(""),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("document_events_doc_idx").on(table.documentId, table.createdAt),
-  ],
+  (table) => [index("document_events_doc_idx").on(table.documentId, table.createdAt)],
 );
 
 /** Avisos no sininho do painel. */
@@ -396,9 +351,7 @@ export const notifications = sqliteTable(
     readAt: text("read_at"),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("notifications_user_idx").on(table.userId, table.createdAt),
-  ],
+  (table) => [index("notifications_user_idx").on(table.userId, table.createdAt)],
 );
 
 /** Controle de horas: cada linha é um período trabalhado (endedAt nulo = cronômetro rodando). */
@@ -409,16 +362,12 @@ export const timeEntries = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    projectId: text("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
     description: text("description").notNull().default(""),
     startedAt: text("started_at").notNull(),
     endedAt: text("ended_at"),
     durationSeconds: integer("duration_seconds").notNull().default(0),
-    invoiceId: text("invoice_id").references(() => invoices.id, {
-      onDelete: "set null",
-    }),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (table) => [index("time_entries_user_idx").on(table.userId, table.startedAt)],
@@ -448,12 +397,8 @@ export const recurringInvoices = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "cascade",
-    }),
-    projectId: text("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
     description: text("description").notNull(),
     amountCents: integer("amount_cents").notNull(),
     dayOfMonth: integer("day_of_month").notNull().default(5),
@@ -464,10 +409,7 @@ export const recurringInvoices = sqliteTable(
     lastInvoiceId: text("last_invoice_id"),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("recurring_user_idx").on(table.userId),
-    index("recurring_next_idx").on(table.active, table.nextDate),
-  ],
+  (table) => [index("recurring_user_idx").on(table.userId), index("recurring_next_idx").on(table.active, table.nextDate)],
 );
 
 /** Serviços exibidos na página pública do freelancer. */
@@ -481,9 +423,7 @@ export const services = sqliteTable(
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
     priceCents: integer("price_cents").notNull().default(0),
-    priceType: text("price_type", {
-      enum: ["fixo", "a-partir", "hora", "consulta"],
-    })
+    priceType: text("price_type", { enum: ["fixo", "a-partir", "hora", "consulta"] })
       .notNull()
       .default("a-partir"),
     position: integer("position").notNull().default(0),
@@ -500,12 +440,8 @@ export const quoteRequests = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    serviceId: text("service_id").references(() => services.id, {
-      onDelete: "set null",
-    }),
-    clientId: text("client_id").references(() => clients.id, {
-      onDelete: "set null",
-    }),
+    serviceId: text("service_id").references(() => services.id, { onDelete: "set null" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     email: text("email").notNull().default(""),
     phone: text("phone").notNull().default(""),
@@ -515,9 +451,7 @@ export const quoteRequests = sqliteTable(
       .default("novo"),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("quote_requests_user_idx").on(table.userId, table.createdAt),
-  ],
+  (table) => [index("quote_requests_user_idx").on(table.userId, table.createdAt)],
 );
 
 /** Aparelhos onde a pessoa já entrou, para avisar sobre login em aparelho novo. */
@@ -533,9 +467,7 @@ export const knownDevices = sqliteTable(
     lastSeenAt: text("last_seen_at"),
     createdAt: createdAt(),
   },
-  (table) => [
-    uniqueIndex("known_devices_unique").on(table.userId, table.deviceHash),
-  ],
+  (table) => [uniqueIndex("known_devices_unique").on(table.userId, table.deviceHash)],
 );
 
 /** Registro de atividades sensíveis da conta (login, senha, 2FA, exportação…). */
@@ -552,9 +484,7 @@ export const securityEvents = sqliteTable(
     detail: text("detail").notNull().default(""),
     createdAt: createdAt(),
   },
-  (table) => [
-    index("security_events_user_idx").on(table.userId, table.createdAt),
-  ],
+  (table) => [index("security_events_user_idx").on(table.userId, table.createdAt)],
 );
 
 /** Links de uso único enviados por e-mail (ex.: confirmar o e-mail). O id é o hash do token. */
@@ -580,6 +510,10 @@ export const loginChallenges = sqliteTable("login_challenges", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   attempts: integer("attempts").notNull().default(0),
+  /** Como a pessoa passou pela primeira etapa (senha, google ou redefinicao). */
+  method: text("method").notNull().default("senha"),
+  /** Para onde voltar depois do código. */
+  next: text("next").notNull().default(""),
   expiresAt: text("expires_at").notNull(),
   createdAt: createdAt(),
 });
@@ -612,20 +546,14 @@ export const externalPayments = sqliteTable(
     event: text("event").notNull(),
     status: text("status").notNull(),
     email: text("email").notNull().default(""),
-    userId: text("user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
     amountCents: integer("amount_cents").notNull().default(0),
     months: integer("months").notNull().default(0),
     handledAt: text("handled_at"),
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("external_payments_unique").on(
-      table.provider,
-      table.externalId,
-      table.event,
-    ),
+    uniqueIndex("external_payments_unique").on(table.provider, table.externalId, table.event),
     index("external_payments_email_idx").on(table.email),
   ],
 );
@@ -663,9 +591,7 @@ export const nfseDocuments = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    invoiceId: text("invoice_id").references(() => invoices.id, {
-      onDelete: "set null",
-    }),
+    invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     ref: text("ref").notNull(),
     layout: text("layout", { enum: ["nacional", "municipal"] })
       .notNull()

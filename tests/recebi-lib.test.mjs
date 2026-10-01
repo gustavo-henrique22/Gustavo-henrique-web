@@ -28,6 +28,8 @@ const slug = await vite.ssrLoadModule("/lib/recebi/slug.ts");
 const enc = await vite.ssrLoadModule("/lib/recebi/encryption-core.ts");
 const pay = await vite.ssrLoadModule("/lib/recebi/payment-providers.ts");
 const nfse = await vite.ssrLoadModule("/lib/recebi/nfse-payload.ts");
+const totp = await vite.ssrLoadModule("/lib/recebi/totp.ts");
+const passwords = await vite.ssrLoadModule("/lib/recebi/password-policy.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -424,4 +426,76 @@ test("reads Focus NFe answers", () => {
   assert.equal(nfse.parseFocusResponse({ status: "cancelado" }, base).status, "cancelado");
   // Um caminho estranho nunca vira link de outro esquema (ex.: javascript:).
   assert.equal(nfse.parseFocusResponse({ caminho_pdf_nota_fiscal: "javascript:alert(1)" }, base).pdfUrl, `${base}/javascript:alert(1)`);
+});
+
+test("generates and checks authenticator codes (RFC 6238)", async () => {
+  // Vetores oficiais da RFC 6238 (SHA-1, segredo "12345678901234567890").
+  const secret = totp.base32Encode(new TextEncoder().encode("12345678901234567890"));
+  assert.equal(secret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
+  assert.deepEqual(totp.base32Decode(secret), new TextEncoder().encode("12345678901234567890"));
+  assert.equal(await totp.totpCode(secret, totp.totpCounter(59_000), 8), "94287082");
+  assert.equal(await totp.totpCode(secret, totp.totpCounter(1_111_111_109_000), 8), "07081804");
+  assert.equal(await totp.totpCode(secret, totp.totpCounter(20_000_000_000_000), 8), "65353130");
+
+  const now = 1_700_000_000_000;
+  const code = await totp.totpCode(secret, totp.totpCounter(now));
+  assert.equal(await totp.verifyTotp(secret, code, now), totp.totpCounter(now));
+  assert.equal(await totp.verifyTotp(secret, code.replace(/^(\d{3})/, "$1 "), now), totp.totpCounter(now));
+  assert.equal(await totp.verifyTotp(secret, code, now + 30_000), totp.totpCounter(now)); // relógio um pouco atrasado
+  assert.equal(await totp.verifyTotp(secret, code, now + 95_000), null); // código velho
+  assert.equal(await totp.verifyTotp(secret, "12345", now), null);
+  // Código de recuperação com 6 números no meio não vira código do app.
+  assert.equal(await totp.verifyTotp(secret, "3msfd-35544", now), null);
+
+  const fresh = totp.generateTotpSecret();
+  assert.match(fresh, /^[A-Z2-7]{32}$/);
+  assert.equal(totp.formatSecret("ABCDEFGH"), "ABCD EFGH");
+  const uri = totp.otpauthUri({ secret: fresh, account: "ana@exemplo.com", issuer: "Recebi" });
+  assert.ok(uri.startsWith("otpauth://totp/Recebi%3Aana%40exemplo.com?secret=" + fresh));
+
+  const codes = totp.generateRecoveryCodes();
+  assert.equal(codes.length, 10);
+  assert.equal(new Set(codes).size, 10);
+  for (const c of codes) assert.match(c, /^[a-z2-9]{5}-[a-z2-9]{5}$/);
+  assert.equal(totp.normalizeRecoveryCode(" ABCDE fghij "), "abcde-fghij");
+  assert.equal(totp.normalizeRecoveryCode("abc"), "");
+});
+
+test("refuses weak and leaked passwords", async () => {
+  assert.equal(passwords.weakPasswordReason("curta"), "A senha precisa ter pelo menos 8 caracteres.");
+  assert.match(passwords.weakPasswordReason("12345678"), /muito comum/);
+  assert.match(passwords.weakPasswordReason("Senha123"), /muito comum/);
+  assert.match(passwords.weakPasswordReason("aaaaaaaaaa"), /variedade/);
+  assert.match(passwords.weakPasswordReason("23456789"), /sequências/);
+  assert.match(passwords.weakPasswordReason("marina.costa2026", { email: "marina.costa@exemplo.com" }), /e-mail/);
+  assert.match(passwords.weakPasswordReason("Ana Souza", { name: "Ana  Souza" }), /nome/);
+  assert.equal(passwords.weakPasswordReason("cafe com pao de queijo"), null);
+
+  // "password" tem SHA-1 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8.
+  const body = "1E4C9B93F3F0682250B6CF8331B7EE68FD8:9545824\r\n0018A45C4D1DEF81644B54AB7F969B88D65:0";
+  assert.equal(passwords.countInRange(body, "1e4c9b93f3f0682250b6cf8331b7ee68fd8"), 9545824);
+  assert.equal(passwords.countInRange(body, "0018A45C4D1DEF81644B54AB7F969B88D65"), 0);
+
+  const seen = [];
+  const fakeFetch = async (url) => {
+    seen.push(url);
+    return new Response(url.endsWith("/5BAA6") ? body : "");
+  };
+  assert.equal(await passwords.breachCount("password", fakeFetch), 9545824);
+  // Só os 5 primeiros caracteres do hash saem do servidor.
+  assert.equal(seen[0], "https://api.pwnedpasswords.com/range/5BAA6");
+
+  const phrase = "uma frase longa e boa";
+  const digest = await globalThis.crypto.subtle.digest("SHA-1", new TextEncoder().encode(phrase));
+  const suffix = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase()
+    .slice(5);
+  assert.equal(await passwords.passwordProblem(phrase, {}, async () => new Response("C0FFEE:3")), null);
+  assert.match(await passwords.passwordProblem(phrase, {}, async () => new Response(`${suffix}:12`)), /vazamentos/);
+  // Serviço fora do ar: não trava o cadastro.
+  const offline = async () => {
+    throw new Error("offline");
+  };
+  assert.equal(await passwords.passwordProblem(phrase, {}, offline), null);
 });

@@ -24,18 +24,15 @@ import { verificationLink } from "../email-verification";
 import { completeLogin } from "../login";
 import { sendPasswordResetEmail, sendWelcomeEmail } from "../notifications";
 import { siteOrigin } from "../origin";
+import { passwordProblem } from "../password-policy";
+import { takeRateLimit } from "../rate-limit";
 import { applyReferral, REFERRAL_COOKIE } from "../referral";
-import { logSecurityEvent } from "../security";
+import { logSecurityEvent, requestMeta } from "../security";
+import { startLoginChallenge, twoFactorEnabled } from "../two-factor";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FAILURES = 8;
 const LOCK_MINUTES = 15;
-
-function checkPassword(password: string): string | null {
-  if (password.length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
-  if (password.length > 200) return "A senha é longa demais.";
-  return null;
-}
 
 function safeNext(value: string): string {
   return value.startsWith(`${APP_PATH}`) && !value.startsWith("//") ? value : APP_PATH;
@@ -49,13 +46,18 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
 
   if (!name) return fail("Informe seu nome.");
   if (!EMAIL_RE.test(email)) return fail("Informe um e-mail válido.");
-  const passwordError = checkPassword(password);
-  if (passwordError) return fail(passwordError);
   if (formData.get("terms") !== "on") return fail("Você precisa aceitar os termos de uso.");
+  const { ip } = await requestMeta();
+  if (ip && !(await takeRateLimit(`cadastro-tentativa:${ip}`, 30, 3_600_000))) return fail("Muitas tentativas. Tente de novo em uma hora.");
+  const passwordError = await passwordProblem(password, { email, name });
+  if (passwordError) return fail(passwordError);
 
   const db = getDb();
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing) return fail("Já existe uma conta com este e-mail. Tente entrar.");
+  // No máximo 5 contas novas por hora vindas da mesma conexão (contra cadastros em massa).
+  if (ip && !(await takeRateLimit(`cadastro:${ip}`, 5, 3_600_000)))
+    return fail("Muitas contas criadas desta conexão. Tente de novo em uma hora.");
 
   const id = crypto.randomUUID();
   await db.insert(users).values({
@@ -84,6 +86,11 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   if (!email || !password) return fail("Informe e-mail e senha.");
 
   const db = getDb();
+  // Limite por conexão: impede testar senhas em muitos e-mails diferentes.
+  const { ip } = await requestMeta();
+  if (ip && !(await takeRateLimit(`entrar:${ip}`, 40, LOCK_MINUTES * 60_000))) {
+    return fail(`Muitas tentativas desta conexão. Aguarde ${LOCK_MINUTES} minutos.`);
+  }
   // Bloqueia temporariamente depois de muitas tentativas erradas para o mesmo e-mail.
   const windowStart = new Date(Date.now() - LOCK_MINUTES * 60_000).toISOString().replace("T", " ").slice(0, 19);
   const [{ failures }] = await db
@@ -105,8 +112,13 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   }
 
   await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
+  const next = safeNext(text(formData, "next", 300));
+  if (twoFactorEnabled(user)) {
+    await startLoginChallenge(user.id, "senha", next);
+    redirect(`${BASE_PATH}/verificar-acesso`);
+  }
   await completeLogin(user, "senha");
-  redirect(safeNext(text(formData, "next", 300)));
+  redirect(next);
 }
 
 export async function signOut(): Promise<void> {
@@ -119,6 +131,10 @@ export async function signOut(): Promise<void> {
 export async function requestPasswordReset(_: ActionState, formData: FormData): Promise<ActionState> {
   const email = normalizeEmail(text(formData, "email", 200));
   if (!EMAIL_RE.test(email)) return fail("Informe um e-mail válido.");
+  const { ip } = await requestMeta();
+  if ((ip && !(await takeRateLimit(`esqueci:${ip}`, 5, 3_600_000))) || !(await takeRateLimit(`esqueci:${email}`, 3, 3_600_000))) {
+    return fail("Você já pediu alguns links. Confira seu e-mail (e o spam) ou tente de novo em uma hora.");
+  }
   if (!emailEnabled()) {
     return fail("O envio automático de e-mails ainda não está ativo. Fale com o suporte pelo WhatsApp para receber seu link.");
   }
@@ -136,8 +152,6 @@ export async function resetPassword(_: ActionState, formData: FormData): Promise
   const token = text(formData, "token", 200);
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
-  const passwordError = checkPassword(password);
-  if (passwordError) return fail(passwordError);
   if (password !== confirm) return fail("As senhas não conferem.");
 
   const reset = await findValidPasswordReset(token);
@@ -146,6 +160,8 @@ export async function resetPassword(_: ActionState, formData: FormData): Promise
   const db = getDb();
   const [user] = await db.select().from(users).where(eq(users.id, reset.userId)).limit(1);
   if (!user) return fail("Este link expirou ou já foi usado. Peça um novo.");
+  const passwordError = await passwordProblem(password, user);
+  if (passwordError) return fail(passwordError);
   await db
     .update(users)
     // Quem recebeu o link no e-mail provou que o e-mail é seu.
@@ -154,6 +170,11 @@ export async function resetPassword(_: ActionState, formData: FormData): Promise
   await db.update(passwordResets).set({ usedAt: new Date().toISOString() }).where(eq(passwordResets.id, reset.id));
   await destroyAllSessions(reset.userId);
   await logSecurityEvent(reset.userId, "senha-redefinida");
+  // Com a verificação em duas etapas, o link do e-mail sozinho não basta para entrar.
+  if (twoFactorEnabled(user)) {
+    await startLoginChallenge(user.id, "redefinicao", APP_PATH);
+    redirect(`${BASE_PATH}/verificar-acesso`);
+  }
   await completeLogin(user, "redefinicao");
   redirect(APP_PATH);
 }

@@ -28,10 +28,12 @@ type Props = {
   wide?: boolean;
   /** Abre ao carregar a página (ex.: link "?novo=receita" da busca rápida). */
   defaultOpen?: boolean;
+  /** Recebe o resultado quando a ação dá certo (só em componentes de cliente). */
+  onSuccess?: (state: ActionState) => void;
 };
 
 /** Diálogo com formulário que chama uma server action e fecha quando dá certo. */
-export function FormDialog({ trigger, title, description, action, submitLabel = "Salvar", children, wide, defaultOpen }: Props) {
+export function FormDialog({ trigger, title, description, action, submitLabel = "Salvar", children, wide, defaultOpen, onSuccess }: Props) {
   const [open, setOpen] = useState(!!defaultOpen);
 
   useEffect(() => {
@@ -53,7 +55,14 @@ export function FormDialog({ trigger, title, description, action, submitLabel = 
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         {open ? (
-          <DialogForm action={action} submitLabel={submitLabel} onDone={() => setOpen(false)}>
+          <DialogForm
+            action={action}
+            submitLabel={submitLabel}
+            onDone={(state) => {
+              setOpen(false);
+              onSuccess?.(state);
+            }}
+          >
             {children}
           </DialogForm>
         ) : null}
@@ -70,7 +79,7 @@ function DialogForm({
 }: {
   action: Props["action"];
   submitLabel: string;
-  onDone: () => void;
+  onDone: (state: ActionState) => void;
   children: React.ReactNode;
 }) {
   const { state, pending, onSubmit } = useActionForm(action);
@@ -78,7 +87,7 @@ function DialogForm({
   useEffect(() => {
     if (state.ok) {
       if (state.message) toast.success(state.message);
-      onDone();
+      onDone(state);
     }
   }, [state, onDone]);
 

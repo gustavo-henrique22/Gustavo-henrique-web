@@ -5,13 +5,17 @@ import { ActionButton } from "@/components/recebi/action-button";
 import { ActionForm } from "@/components/recebi/action-form";
 import { FormField } from "@/components/recebi/fields";
 import { SettingsSection } from "@/components/recebi/settings-section";
+import { TwoFactorPanel } from "@/components/recebi/two-factor-panel";
 import { changePassword } from "@/lib/recebi/actions/account";
 import { resendVerificationEmail, revokeOtherSessions, revokeSession } from "@/lib/recebi/actions/security";
 import { currentSessionId, GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
 import { listSessions } from "@/lib/recebi/data";
 import { formatDateTime, formatRelative } from "@/lib/recebi/dates";
 import { emailEnabled } from "@/lib/recebi/email";
+import { pixQrSvg } from "@/lib/recebi/pix";
 import { describeDevice, listSecurityEvents, SECURITY_EVENT_LABELS } from "@/lib/recebi/security";
+import { formatSecret, otpauthUri } from "@/lib/recebi/totp";
+import { openTotpSecret, recoveryCodesLeft } from "@/lib/recebi/two-factor";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Segurança" };
@@ -30,6 +34,16 @@ export default async function SecuritySettingsPage() {
   const user = await requireUser();
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
   const [sessionRows, current, events] = await Promise.all([listSessions(user.id), currentSessionId(), listSecurityEvents(user.id, 25)]);
+  const pendingSecret = !user.totpEnabledAt && user.totpSecret ? await openTotpSecret(user) : "";
+  const twoFactor = user.totpEnabledAt
+    ? { status: "on" as const, enabledAt: user.totpEnabledAt, codesLeft: recoveryCodesLeft(user), needsPassword: !googleOnly }
+    : pendingSecret
+      ? {
+          status: "setup" as const,
+          qrSvg: pixQrSvg(otpauthUri({ secret: pendingSecret, account: user.email, issuer: "Recebi" })),
+          secret: formatSecret(pendingSecret),
+        }
+      : { status: "off" as const };
 
   return (
     <>
@@ -83,6 +97,18 @@ export default async function SecuritySettingsPage() {
             </FormField>
           </div>
         </ActionForm>
+      </SettingsSection>
+
+      <SettingsSection
+        id="duas-etapas"
+        title="Verificação em duas etapas"
+        description="A proteção mais forte contra senha roubada. Recomendado para todas as contas."
+      >
+        {user.isDemo ? (
+          <p className="text-sm text-muted-foreground">Disponível nas contas de verdade.</p>
+        ) : (
+          <TwoFactorPanel {...twoFactor} />
+        )}
       </SettingsSection>
 
       <SettingsSection
