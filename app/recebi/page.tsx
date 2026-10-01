@@ -440,7 +440,10 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
               Calculadora de preço
             </Link>
             <Link href={`${BASE_PATH}/termos`} className="hover:text-white">
-              Termos e privacidade
+              Termos de uso
+            </Link>
+            <Link href={`${BASE_PATH}/privacidade`} className="hover:text-white">
+              Privacidade
             </Link>
             <Link href="/" className="hover:text-white">
               Criado por Gustavo Henrique

@@ -19,6 +19,7 @@ import {
 import { APP_PATH, BASE_PATH } from "../config";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
+import { sendAccountDeletedEmail } from "../notifications";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -117,12 +118,12 @@ export async function deleteAccount(_: ActionState, formData: FormData): Promise
   const user = await requireUser();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const password = String(formData.get("password") ?? "");
-  if (user.passwordHash === GOOGLE_ONLY_PASSWORD) {
-    if (text(formData, "confirm", 20).toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
-  } else if (!(await verifyPassword(password, user.passwordHash))) return fail("Senha incorreta.");
+  if (text(formData, "confirm", 20).toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
+  if (user.passwordHash !== GOOGLE_ONLY_PASSWORD && !(await verifyPassword(password, user.passwordHash))) return fail("Senha incorreta.");
   await destroySession();
   await removeUserFiles(user.id);
   await getDb().delete(users).where(eq(users.id, user.id));
+  await sendAccountDeletedEmail(user);
   redirect(`${BASE_PATH}?conta-excluida=1`);
 }
 

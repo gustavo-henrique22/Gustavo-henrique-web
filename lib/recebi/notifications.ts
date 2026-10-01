@@ -215,6 +215,26 @@ export async function sendReceiptEmail(invoiceId: string) {
   });
 }
 
+/** Confirmação da exclusão da conta (LGPD). */
+export async function sendAccountDeletedEmail(user: Pick<User, "name" | "email" | "isDemo">) {
+  if (!emailEnabled() || user.isDemo) return;
+  const origin = await siteOrigin();
+  await sendEmail({
+    to: user.email,
+    subject: "Sua conta no Recebi foi excluída",
+    html: emailLayout({
+      preheader: "Seus dados foram apagados.",
+      title: "Conta excluída",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}. Como você pediu, excluímos sua conta no Recebi e apagamos seus dados e arquivos.`,
+        "Se não foi você quem pediu, responda este e-mail imediatamente.",
+        "Obrigado por ter usado o Recebi. As portas continuam abertas se quiser voltar.",
+      ],
+      cta: { label: "Conhecer o Recebi", url: `${origin}${BASE_PATH}` },
+    }),
+  });
+}
+
 export async function sendProActivatedEmail(user: Pick<User, "name" | "email">, until: string) {
   if (!emailEnabled()) return;
   const origin = await siteOrigin();

@@ -77,7 +77,11 @@ export function SignUpForm() {
         <span>
           Li e aceito os{" "}
           <Link href={`${BASE_PATH}/termos`} className="font-medium text-foreground underline underline-offset-2" target="_blank">
-            termos de uso e a política de privacidade
+            termos de uso
+          </Link>{" "}
+          e a{" "}
+          <Link href={`${BASE_PATH}/privacidade`} className="font-medium text-foreground underline underline-offset-2" target="_blank">
+            política de privacidade
           </Link>
           .
         </span>

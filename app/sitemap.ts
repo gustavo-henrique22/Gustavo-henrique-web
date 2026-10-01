@@ -14,6 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${origin}/recebi/calculadora`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${origin}/recebi/cadastro`, changeFrequency: "yearly", priority: 0.5 },
     { url: `${origin}/recebi/termos`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${origin}/recebi/privacidade`, changeFrequency: "yearly", priority: 0.2 },
   ];
   try {
     // Páginas públicas dos freelancers que decidiram publicar.

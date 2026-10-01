@@ -24,6 +24,7 @@ const crypto = await vite.ssrLoadModule("/lib/recebi/crypto.ts");
 const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
 const statement = await vite.ssrLoadModule("/lib/recebi/statement.ts");
 const slug = await vite.ssrLoadModule("/lib/recebi/slug.ts");
+const enc = await vite.ssrLoadModule("/lib/recebi/encryption-core.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -245,4 +246,22 @@ test("builds public page addresses", () => {
   assert.equal(slug.isValidSlug("admin"), false);
   assert.equal(slug.isValidSlug("-marina"), false);
   assert.equal(slug.isValidSlug("mar--ina"), false);
+});
+
+test("encrypts sensitive fields with AES-GCM bound to their context", async () => {
+  const key = "chave-de-teste-com-mais-de-32-caracteres!!";
+  const other = "outra-chave-de-teste-com-mais-de-32-caracteres";
+  const sealed = await enc.encryptWith(key, "123.456.789-09", "users.document:u1");
+  assert.ok(sealed.startsWith("enc:v1:"));
+  assert.ok(!sealed.includes("123.456"));
+  assert.notEqual(sealed, await enc.encryptWith(key, "123.456.789-09", "users.document:u1"));
+  assert.equal(await enc.decryptWith([key], sealed, "users.document:u1"), "123.456.789-09");
+  assert.equal(await enc.decryptWith([key], sealed, "users.document:u2"), "");
+  assert.equal(await enc.decryptWith([other], sealed, "users.document:u1"), "");
+  assert.equal(await enc.decryptWith([other, key], sealed, "users.document:u1"), "123.456.789-09");
+  assert.equal(await enc.decryptWith([key], "texto antigo", "x"), "texto antigo");
+  assert.equal(await enc.encryptWith(undefined, "sem chave", "x"), "sem chave");
+  assert.equal(await enc.encryptWith("curta", "sem chave", "x"), "sem chave");
+  assert.equal(await enc.needsReencryptionWith(other, sealed), true);
+  assert.equal(await enc.needsReencryptionWith(key, sealed), false);
 });
