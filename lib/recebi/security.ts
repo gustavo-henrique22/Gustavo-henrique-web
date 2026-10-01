@@ -26,6 +26,8 @@ export const SECURITY_EVENT_LABELS: Record<string, string> = {
   "link-desativado": "Link público desativado",
   "link-trocado": "Link público trocado",
   "nfse-configurada": "Nota fiscal configurada",
+  "chave-pix-alterada": "Chave Pix alterada",
+  "email-alterado": "E-mail da conta alterado",
 };
 
 export async function requestMeta(): Promise<{ ip: string; userAgent: string }> {

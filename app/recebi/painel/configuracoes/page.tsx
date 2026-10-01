@@ -152,15 +152,8 @@ export default async function SettingsPage() {
               </div>
             ) : null}
             <ActionForm action={uploadLogo} submitLabel={logoUrl ? "Trocar logo" : "Enviar logo"} resetOnSuccess>
-              <FormField id="logo" label="Arquivo da logo" hint="PNG, JPG, WEBP ou SVG de até 1 MB. Fundo transparente fica melhor.">
-                <Input
-                  id="logo"
-                  name="logo"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  required
-                  className="cursor-pointer"
-                />
+              <FormField id="logo" label="Arquivo da logo" hint="PNG, JPG ou WEBP de até 1 MB. Fundo transparente fica melhor.">
+                <Input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" required className="cursor-pointer" />
               </FormField>
             </ActionForm>
           </div>

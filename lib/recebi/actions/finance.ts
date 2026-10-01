@@ -72,7 +72,7 @@ export async function saveTransaction(_: ActionState, formData: FormData): Promi
     attachment = {
       attachmentKey: stored.key,
       attachmentName: file.name.slice(0, 120),
-      attachmentType: file.type,
+      attachmentType: stored.type,
       attachmentSize: file.size,
     };
   }

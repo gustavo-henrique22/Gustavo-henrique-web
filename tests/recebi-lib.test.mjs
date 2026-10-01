@@ -31,6 +31,7 @@ const nfse = await vite.ssrLoadModule("/lib/recebi/nfse-payload.ts");
 const totp = await vite.ssrLoadModule("/lib/recebi/totp.ts");
 const passwords = await vite.ssrLoadModule("/lib/recebi/password-policy.ts");
 const headers = await vite.ssrLoadModule("/lib/recebi/security-headers.ts");
+const fileTypes = await vite.ssrLoadModule("/lib/recebi/file-types.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -527,4 +528,17 @@ test("sets strict security headers and blocks cross-site writes", () => {
   assert.equal(headers.isCrossSiteRequest({ ...base, method: "GET", origin: "https://golpe.com" }), false);
   // Webhooks de pagamento vêm de outros servidores.
   assert.equal(headers.isCrossSiteRequest({ ...base, pathname: "/recebi/api/pagamentos/kiwify", origin: "https://kiwify.com.br" }), false);
+});
+
+test("detects real file types by their first bytes", () => {
+  const b = (...v) => Uint8Array.from(v);
+  const text = (t) => Uint8Array.from(t, (c) => c.charCodeAt(0));
+  assert.equal(fileTypes.sniffFileType(b(0xff, 0xd8, 0xff, 0xe0)), "image/jpeg");
+  assert.equal(fileTypes.sniffFileType(b(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)), "image/png");
+  assert.equal(fileTypes.sniffFileType(text("RIFF\0\0\0\0WEBPVP8 ")), "image/webp");
+  assert.equal(fileTypes.sniffFileType(text("\0\0\0\x18ftypheic")), "image/heic");
+  assert.equal(fileTypes.sniffFileType(text("%PDF-1.7")), "application/pdf");
+  assert.equal(fileTypes.sniffFileType(text("<svg xmlns=")), null);
+  assert.equal(fileTypes.sniffFileType(text("MZ\x90\0")), null); // executável renomeado
+  assert.equal(fileTypes.extensionFor("image/png"), "png");
 });

@@ -23,10 +23,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const filename = (row.name ?? "comprovante").replace(/[^\w.\- ]/g, "_");
   return new Response(file.body, {
     headers: {
-      "Content-Type": row.type ?? "application/octet-stream",
+      // Tipo conferido pelo conteúdo no envio (não o informado pelo navegador).
+      "Content-Type": file.httpMetadata?.contentType ?? row.type ?? "application/octet-stream",
       "Content-Disposition": `inline; filename="${filename}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
     },
   });
 }

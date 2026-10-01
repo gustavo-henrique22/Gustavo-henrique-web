@@ -28,7 +28,14 @@ function maskIp(ip: string) {
   return parts.length === 4 ? `${parts[0]}.${parts[1]}.*.*` : ip;
 }
 
-const ALERT_EVENTS = new Set(["login-falhou", "login-novo-aparelho", "login-2fa-falhou", "2fa-desativada"]);
+const ALERT_EVENTS = new Set([
+  "login-falhou",
+  "login-novo-aparelho",
+  "login-2fa-falhou",
+  "2fa-desativada",
+  "chave-pix-alterada",
+  "email-alterado",
+]);
 
 export default async function SecuritySettingsPage() {
   const user = await requireUser();

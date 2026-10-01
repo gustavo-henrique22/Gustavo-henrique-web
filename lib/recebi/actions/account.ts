@@ -62,7 +62,10 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
       ...(email !== user.email ? { emailVerifiedAt: null } : {}),
     })
     .where(eq(users.id, user.id));
-  if (email !== user.email) await sendEmailVerification({ ...user, name, email, emailVerifiedAt: null });
+  if (email !== user.email) {
+    await logSecurityEvent(user.id, "email-alterado", `${user.email} → ${email}`);
+    await sendEmailVerification({ ...user, name, email, emailVerifiedAt: null });
+  }
   refresh();
   return success("Perfil atualizado.");
 }
@@ -76,6 +79,8 @@ export async function updatePaymentSettings(_: ActionState, formData: FormData):
     .update(users)
     .set({ ...(await sealUser(user.id, { pixKey })), city })
     .where(eq(users.id, user.id));
+  // Trocar a chave Pix desvia os pagamentos: fica registrado na atividade de segurança.
+  if (pixKey !== user.pixKey) await logSecurityEvent(user.id, "chave-pix-alterada");
   refresh();
   return success("Dados de recebimento salvos.");
 }
