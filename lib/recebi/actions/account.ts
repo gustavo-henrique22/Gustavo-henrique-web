@@ -24,6 +24,7 @@ import { passwordProblem } from "../password-policy";
 import { takeRateLimit } from "../rate-limit";
 import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
 import { logSecurityEvent } from "../security";
+import { sealUser } from "../sensitive";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -55,8 +56,8 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
       name,
       email,
       businessName: text(formData, "businessName", 120),
-      document: text(formData, "document", 30),
-      phone: text(formData, "phone", 40),
+      // CPF/CNPJ e telefone ficam criptografados no banco.
+      ...(await sealUser(user.id, { document: text(formData, "document", 30), phone: text(formData, "phone", 40) })),
       // Um e-mail novo precisa ser confirmado de novo.
       ...(email !== user.email ? { emailVerifiedAt: null } : {}),
     })
@@ -71,7 +72,10 @@ export async function updatePaymentSettings(_: ActionState, formData: FormData):
   const pixKey = text(formData, "pixKey", 100);
   const city = text(formData, "city", 60);
   if (pixKey && !city) return fail("Informe sua cidade. Ela é obrigatória no QR Code do Pix.");
-  await getDb().update(users).set({ pixKey, city }).where(eq(users.id, user.id));
+  await getDb()
+    .update(users)
+    .set({ ...(await sealUser(user.id, { pixKey })), city })
+    .where(eq(users.id, user.id));
   refresh();
   return success("Dados de recebimento salvos.");
 }

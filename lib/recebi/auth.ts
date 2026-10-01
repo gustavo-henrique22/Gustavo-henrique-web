@@ -10,6 +10,7 @@ import { APP_PATH, BASE_PATH, SESSION_COOKIE, SESSION_DAYS } from "./config";
 import { hashPassword, randomToken, sha256Hex, verifyPassword } from "./crypto";
 import { todayISO } from "./dates";
 import { requestMeta } from "./security";
+import { openUser } from "./sensitive";
 
 export { hashPassword, verifyPassword };
 
@@ -139,7 +140,8 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
       .set({ lastSeenAt: new Date(now).toISOString() })
       .where(eq(sessions.id, sessionId));
   }
-  return row.user;
+  // CPF/CNPJ, chave Pix e telefone ficam criptografados no banco.
+  return openUser(row.user);
 });
 
 export async function requireUser(): Promise<User> {

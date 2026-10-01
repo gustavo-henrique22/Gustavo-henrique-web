@@ -12,6 +12,7 @@ import { countActiveClients } from "../data";
 import { addMonthsToDate, isValidISODate } from "../dates";
 import { ATTACHMENT_TYPES, removeFile, storeUpload } from "../files";
 import { parseMoney } from "../money";
+import { sealClient } from "../sensitive";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -166,9 +167,10 @@ export async function saveClient(_: ActionState, formData: FormData): Promise<Ac
 
   const db = getDb();
   if (id) {
+    // Telefone, CPF/CNPJ e observações ficam criptografados no banco.
     const result = await db
       .update(clients)
-      .set(values)
+      .set({ ...values, ...(await sealClient(id, values)) })
       .where(and(eq(clients.id, id), eq(clients.userId, user.id)))
       .returning({ id: clients.id });
     if (result.length === 0) return fail("Cliente não encontrado.");
@@ -179,7 +181,8 @@ export async function saveClient(_: ActionState, formData: FormData): Promise<Ac
   if (!hasPro(user) && (await countActiveClients(user.id)) >= FREE_LIMITS.clients) {
     return fail(`O plano Grátis permite até ${FREE_LIMITS.clients} clientes ativos. Arquive um cliente ou conheça o Pro.`);
   }
-  await db.insert(clients).values({ ...values, id: crypto.randomUUID(), userId: user.id });
+  const clientId = crypto.randomUUID();
+  await db.insert(clients).values({ ...values, ...(await sealClient(clientId, values)), id: clientId, userId: user.id });
   refresh();
   return success("Cliente cadastrado.");
 }

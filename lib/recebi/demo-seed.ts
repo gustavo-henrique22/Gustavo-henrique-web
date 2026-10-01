@@ -21,6 +21,7 @@ import { randomToken } from "./crypto";
 import { APP_PATH } from "./config";
 import { addDays, addMonths, currentMonth, firstMonthlyDate, todayISO } from "./dates";
 import { sqliteTimestamp } from "./rate-limit";
+import { sealClient, sealRequest, sealUser } from "./sensitive";
 
 type Row<T extends { $inferInsert: unknown }> = T["$inferInsert"];
 
@@ -46,10 +47,9 @@ export async function createDemoAccount(): Promise<string> {
     email: `demo-${crypto.randomUUID().slice(0, 12)}@demo.recebi.app`,
     passwordHash: "demo",
     businessName: "Marina Costa Design",
-    document: "12.345.678/0001-95",
-    phone: "(11) 97777-6666",
+    // Mesmo na demonstração, os campos sensíveis seguem o caminho criptografado.
+    ...(await sealUser(userId, { document: "12.345.678/0001-95", phone: "(11) 97777-6666", pixKey: "marina@costadesign.exemplo" })),
     city: "São Paulo",
-    pixKey: "marina@costadesign.exemplo",
     monthlyGoalCents: 900_000,
     taxRateBp: 600,
     annualLimitCents: 8_100_000,
@@ -432,9 +432,11 @@ export async function createDemoAccount(): Promise<string> {
     { id: crypto.randomUUID(), userId, pattern: "uber", type: "despesa", category: "Transporte" },
   ];
 
+  const sealedClients = await Promise.all(clientRows.map(async (row) => ({ ...row, ...(await sealClient(row.id!, row)) })));
+
   // Um lote por tabela, respeitando o limite de parâmetros do D1.
   await db.batch([
-    db.insert(clients).values(clientRows),
+    db.insert(clients).values(sealedClients),
     db.insert(projects).values(projectRows),
     ...chunk(tx, 8).map((rows) => db.insert(transactions).values(rows)),
     ...chunk(invoiceRows, 6).map((rows) => db.insert(invoices).values(rows)),
@@ -445,7 +447,7 @@ export async function createDemoAccount(): Promise<string> {
     db.insert(notifications).values(noticeRows),
     db.insert(timeEntries).values(timeRows),
     db.insert(services).values(serviceRows),
-    db.insert(quoteRequests).values(requestRow),
+    db.insert(quoteRequests).values({ ...requestRow, ...(await sealRequest(requestRow.id!, requestRow)) }),
     db.insert(recurringInvoices).values(recurringRow),
     db.insert(categoryRules).values(ruleRows),
   ] as unknown as Parameters<typeof db.batch>[0]);

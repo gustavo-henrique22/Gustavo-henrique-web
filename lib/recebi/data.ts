@@ -19,20 +19,25 @@ import {
   users,
 } from "@/db/schema";
 import { addMonths, monthBounds, todayISO } from "./dates";
+import { openClient, openClients, openRequest, openUser } from "./sensitive";
+
+// CPF/CNPJ, chave Pix, telefones, observações e mensagens ficam criptografados no banco:
+// as funções abaixo devolvem esses campos já abertos (open*).
 
 const sumAmount = sql<number>`coalesce(sum(${transactions.amountCents}), 0)`;
 
 export async function getUserById(id: string) {
   const [row] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
-  return row ?? null;
+  return row ? openUser(row) : null;
 }
 
 export async function listClients(userId: string, { includeArchived = false } = {}) {
-  return getDb()
+  const rows = await getDb()
     .select()
     .from(clients)
     .where(includeArchived ? eq(clients.userId, userId) : and(eq(clients.userId, userId), eq(clients.archived, false)))
     .orderBy(asc(sql`lower(${clients.name})`));
+  return openClients(rows);
 }
 
 export async function listProjects(userId: string) {
@@ -50,7 +55,7 @@ export async function getClient(userId: string, id: string) {
     .from(clients)
     .where(and(eq(clients.userId, userId), eq(clients.id, id)))
     .limit(1);
-  return row ?? null;
+  return row ? openClient(row) : null;
 }
 
 export async function countActiveClients(userId: string): Promise<number> {
@@ -372,7 +377,7 @@ export async function getInvoice(userId: string, id: string) {
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id)).orderBy(asc(invoiceItems.position));
-  return { ...row, items };
+  return { ...row, client: row.client ? await openClient(row.client) : null, items };
 }
 
 /** Cobrança pública (link enviado ao cliente). Não mostra rascunhos. */
@@ -387,7 +392,7 @@ export async function getPublicInvoice(token: string) {
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, row.invoice.id)).orderBy(asc(invoiceItems.position));
-  return { ...row, items };
+  return { ...row, client: row.client ? await openClient(row.client) : null, owner: await openUser(row.owner), items };
 }
 
 // ---------- Orçamentos ----------
@@ -443,7 +448,7 @@ export async function getQuote(userId: string, id: string) {
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, id)).orderBy(asc(quoteItems.position));
-  return { ...row, items };
+  return { ...row, client: row.client ? await openClient(row.client) : null, items };
 }
 
 /** Orçamento público (link enviado ao cliente). Não mostra rascunhos. */
@@ -459,7 +464,7 @@ export async function getPublicQuote(token: string) {
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, row.quote.id)).orderBy(asc(quoteItems.position));
-  return { ...row, items };
+  return { ...row, client: row.client ? await openClient(row.client) : null, owner: await openUser(row.owner), items };
 }
 
 // ---------- Controle de horas ----------
@@ -522,13 +527,14 @@ export async function listServices(userId: string) {
 }
 
 export async function listQuoteRequests(userId: string) {
-  return getDb()
+  const rows = await getDb()
     .select({ request: quoteRequests, serviceName: services.name })
     .from(quoteRequests)
     .leftJoin(services, eq(services.id, quoteRequests.serviceId))
     .where(eq(quoteRequests.userId, userId))
     .orderBy(desc(quoteRequests.createdAt))
     .limit(100);
+  return Promise.all(rows.map(async (row) => ({ ...row, request: await openRequest(row.request) })));
 }
 
 export async function getQuoteRequest(userId: string, id: string) {
@@ -538,7 +544,7 @@ export async function getQuoteRequest(userId: string, id: string) {
     .leftJoin(services, eq(services.id, quoteRequests.serviceId))
     .where(and(eq(quoteRequests.userId, userId), eq(quoteRequests.id, id)))
     .limit(1);
-  return row ?? null;
+  return row ? { ...row, request: await openRequest(row.request) } : null;
 }
 
 /** Página pública: só aparece se a pessoa publicou. */
@@ -549,7 +555,7 @@ export async function getPublicProfile(slug: string) {
     .where(and(eq(users.slug, slug), eq(users.publicProfile, true)))
     .limit(1);
   if (!owner) return null;
-  return { owner, services: await listServices(owner.id) };
+  return { owner: await openUser(owner), services: await listServices(owner.id) };
 }
 
 /** Quantos passos do guia de primeiros passos a pessoa já fez. */

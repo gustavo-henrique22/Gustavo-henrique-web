@@ -90,6 +90,12 @@ export async function decryptWith(secrets: (string | undefined)[], value: string
   return "";
 }
 
+/** Começo dos valores criptografados com esta chave ("enc:v1:<id>:"), ou "" se a chave não serve. */
+export async function currentPrefixWith(secret: string | undefined): Promise<string> {
+  if (!usable(secret)) return "";
+  return `${PREFIX}${(await loadKey(secret)).id}:`;
+}
+
 /** Precisa ser recriptografado com a chave atual (texto comum ou chave antiga)? */
 export async function needsReencryptionWith(secret: string | undefined, value: string | null | undefined): Promise<boolean> {
   if (!value || !usable(secret)) return false;

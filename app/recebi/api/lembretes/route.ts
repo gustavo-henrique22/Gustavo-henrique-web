@@ -1,4 +1,5 @@
 import { readEnv } from "@/lib/recebi/email";
+import { reencryptPending } from "@/lib/recebi/encryption-jobs";
 import { refreshPendingNfse } from "@/lib/recebi/nfse";
 import { sendDueReminders } from "@/lib/recebi/notifications";
 import { generateDueRecurring } from "@/lib/recebi/recurring";
@@ -7,7 +8,8 @@ import { sendMonthlySummaries } from "@/lib/recebi/summary";
 export const dynamic = "force-dynamic";
 
 /**
- * Tarefas automáticas do dia: cobranças recorrentes, lembretes de cobrança, resumo do mês e notas fiscais pendentes.
+ * Tarefas automáticas do dia: cobranças recorrentes, lembretes de cobrança, resumo do mês, notas fiscais pendentes
+ * e criptografia de dados antigos.
  * Chame uma vez por dia (ex.: pelo cron-job.org) com
  * https://SEU-SITE/recebi/api/lembretes?chave=VALOR_DE_RECEBI_CRON_SECRET
  */
@@ -21,7 +23,8 @@ async function run(request: Request) {
   const reminders = await sendDueReminders();
   const summaries = await sendMonthlySummaries();
   const nfse = await refreshPendingNfse();
-  return Response.json({ ok: true, recurring, ...reminders, summaries, nfse });
+  const encrypted = await reencryptPending();
+  return Response.json({ ok: true, recurring, ...reminders, summaries, nfse, encrypted });
 }
 
 export const GET = run;

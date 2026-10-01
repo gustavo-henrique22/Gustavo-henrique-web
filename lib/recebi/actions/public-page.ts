@@ -14,6 +14,7 @@ import { emailEnabled, emailLayout, escapeHtml, sendEmail } from "../email";
 import { parseMoney } from "../money";
 import { siteOrigin } from "../origin";
 import { takeRateLimit } from "../rate-limit";
+import { openRequest, sealClient, sealRequest } from "../sensitive";
 import { isValidSlug, slugify } from "../slug";
 
 const MAX_SERVICES = 12;
@@ -103,12 +104,13 @@ export async function setRequestStatus(_: ActionState, formData: FormData): Prom
 export async function quoteFromRequest(_: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const db = getDb();
-  const [request] = await db
+  const [row] = await db
     .select()
     .from(quoteRequests)
     .where(and(eq(quoteRequests.id, text(formData, "id", 64)), eq(quoteRequests.userId, user.id)))
     .limit(1);
-  if (!request) return fail("Pedido não encontrado.");
+  if (!row) return fail("Pedido não encontrado.");
+  const request = await openRequest(row);
   let clientId = request.clientId;
   if (!clientId) {
     if (!hasPro(user) && (await countActiveClients(user.id)) >= FREE_LIMITS.clients) {
@@ -120,8 +122,7 @@ export async function quoteFromRequest(_: ActionState, formData: FormData): Prom
       userId: user.id,
       name: request.name,
       email: request.email,
-      phone: request.phone,
-      notes: "Veio pela sua página pública.",
+      ...(await sealClient(clientId, { phone: request.phone, notes: "Veio pela sua página pública." })),
     });
     await db.update(quoteRequests).set({ clientId }).where(eq(quoteRequests.id, request.id));
   }
@@ -172,20 +173,22 @@ export async function requestQuote(_: ActionState, formData: FormData): Promise<
         .limit(1)
     : [];
 
+  // Telefone e mensagem ficam criptografados no banco.
+  const requestId = crypto.randomUUID();
   await db.insert(quoteRequests).values({
-    id: crypto.randomUUID(),
+    id: requestId,
     userId: owner.id,
     serviceId: service?.id ?? null,
     clientId: existing?.id ?? null,
     name,
     email,
-    phone,
-    message,
+    ...(await sealRequest(requestId, { phone, message })),
   });
   await notify(owner.id, {
     type: "pedido",
     title: `Novo pedido de orçamento: ${name}`,
-    body: `${service ? `${service.name} · ` : ""}${message.slice(0, 120)}`,
+    // A mensagem fica só no pedido (criptografada); o aviso mostra o serviço.
+    body: service ? service.name : "Veja a mensagem na sua página.",
     href: `${APP_PATH}/pagina#pedidos`,
   });
 

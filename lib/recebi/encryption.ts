@@ -5,7 +5,7 @@
 // Sem RECEBI_ENCRYPTION_KEY (mínimo 32 caracteres), os valores ficam como texto e o painel de administração avisa.
 // Para trocar a chave, mova a atual para RECEBI_ENCRYPTION_KEY_OLD e cadastre uma nova.
 import { readEnv } from "./email";
-import { decryptWith, encryptWith, isEncrypted, needsReencryptionWith } from "./encryption-core";
+import { currentPrefixWith, decryptWith, encryptWith, isEncrypted, needsReencryptionWith } from "./encryption-core";
 
 export { isEncrypted };
 
@@ -23,4 +23,9 @@ export function decryptField(value: string | null | undefined, context: string):
 
 export function needsReencryption(value: string | null | undefined): Promise<boolean> {
   return needsReencryptionWith(readEnv("RECEBI_ENCRYPTION_KEY"), value);
+}
+
+/** Prefixo dos valores já criptografados com a chave atual ("" sem chave). */
+export function currentEncryptionPrefix(): Promise<string> {
+  return currentPrefixWith(readEnv("RECEBI_ENCRYPTION_KEY"));
 }
