@@ -56,7 +56,11 @@ export default async function SettingsPage() {
         </ActionForm>
       </SettingsSection>
 
-      <SettingsSection title="Recebimento via Pix" description="Com a chave cadastrada, toda cobrança ganha QR Code e Pix copia e cola.">
+      <SettingsSection
+        id="pix"
+        title="Recebimento via Pix"
+        description="Com a chave cadastrada, toda cobrança ganha QR Code e Pix copia e cola."
+      >
         <ActionForm action={updatePaymentSettings}>
           <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
             <FormField
@@ -82,6 +86,7 @@ export default async function SettingsPage() {
       </SettingsSection>
 
       <SettingsSection
+        id="metas"
         title="Metas e impostos"
         description="Usados no painel para mostrar seu progresso, o imposto estimado e o quanto sobra livre."
       >

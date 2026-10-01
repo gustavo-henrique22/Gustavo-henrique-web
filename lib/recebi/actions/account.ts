@@ -175,3 +175,10 @@ export async function updateHourlyRate(_: ActionState, formData: FormData): Prom
   refresh();
   return success("Valor da hora atualizado.");
 }
+
+export async function dismissOnboarding(): Promise<ActionState> {
+  const user = await requireUser();
+  await getDb().update(users).set({ onboardingDismissedAt: new Date().toISOString() }).where(eq(users.id, user.id));
+  refresh();
+  return success("Guia escondido. Você encontra tudo no menu.");
+}

@@ -3,7 +3,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarClock,
-  Check,
   CircleDollarSign,
   FileSignature,
   Landmark,
@@ -20,6 +19,7 @@ import { CashflowChart } from "@/components/recebi/cashflow-chart";
 import { MonthSwitcher } from "@/components/recebi/month-switcher";
 import { PageHeader } from "@/components/recebi/page-header";
 import { ForecastCard } from "@/components/recebi/forecast-card";
+import { OnboardingChecklist, onboardingSteps } from "@/components/recebi/onboarding-checklist";
 import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
@@ -29,7 +29,6 @@ import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
 import {
   agenda,
-  countActiveClients,
   hasAnyData,
   incomeByClient,
   listClients,
@@ -37,6 +36,7 @@ import {
   monthlySeries,
   monthTotals,
   openPayables,
+  onboardingSnapshot,
   openReceivables,
   paidIncomeBetween,
 } from "@/lib/recebi/data";
@@ -53,33 +53,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const year = month.slice(0, 4);
   const today = todayISO();
 
-  const [
-    totals,
-    series,
-    receivables,
-    payables,
-    upcoming,
-    clientsList,
-    projectRows,
-    topClients,
-    yearIncome,
-    anyData,
-    clientCount,
-    forecast,
-  ] = await Promise.all([
-    monthTotals(user.id, month),
-    monthlySeries(user.id, month, 6),
-    openReceivables(user.id),
-    openPayables(user.id),
-    agenda(user.id, 7),
-    listClients(user.id),
-    listProjects(user.id),
-    incomeByClient(user.id, `${year}-01-01`, `${year}-12-31`, 5),
-    paidIncomeBetween(user.id, `${year}-01-01`, `${year}-12-31`),
-    hasAnyData(user.id),
-    countActiveClients(user.id),
-    cashForecast(user.id),
-  ]);
+  const [totals, series, receivables, payables, upcoming, clientsList, projectRows, topClients, yearIncome, anyData, forecast, onboarding] =
+    await Promise.all([
+      monthTotals(user.id, month),
+      monthlySeries(user.id, month, 6),
+      openReceivables(user.id),
+      openPayables(user.id),
+      agenda(user.id, 7),
+      listClients(user.id),
+      listProjects(user.id),
+      incomeByClient(user.id, `${year}-01-01`, `${year}-12-31`, 5),
+      paidIncomeBetween(user.id, `${year}-01-01`, `${year}-12-31`),
+      hasAnyData(user.id),
+      cashForecast(user.id),
+      onboardingSnapshot(user.id),
+    ]);
 
   const projects = projectRows.map((r) => r.project);
   const profit = totals.incomePaid - totals.expensePaid;
@@ -145,7 +133,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </form>
       ) : null}
 
-      {!anyData ? <Onboarding hasPix={!!user.pixKey} hasClient={clientCount > 0} welcome={params["bem-vindo"] === "1"} /> : null}
+      {!user.isDemo && !user.onboardingDismissedAt ? (
+        <OnboardingChecklist steps={onboardingSteps(user, onboarding)} welcome={params["bem-vindo"] === "1"} />
+      ) : null}
 
       <section aria-label="Resumo do mês" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -349,47 +339,5 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
     </>
-  );
-}
-
-function Onboarding({ hasPix, hasClient, welcome }: { hasPix: boolean; hasClient: boolean; welcome: boolean }) {
-  const steps = [
-    { done: hasPix, label: "Cadastre sua chave Pix", text: "Ela aparece nas cobranças com QR Code.", href: `${APP_PATH}/configuracoes` },
-    { done: hasClient, label: "Adicione um cliente", text: "Para saber quem mais te paga.", href: `${APP_PATH}/clientes` },
-    { done: false, label: "Lance sua primeira receita", text: "Use os botões acima.", href: `${APP_PATH}/lancamentos` },
-    {
-      done: false,
-      label: "Envie um orçamento",
-      text: "O cliente aprova e a cobrança com Pix sai sozinha.",
-      href: `${APP_PATH}/orcamentos/novo`,
-    },
-  ];
-  return (
-    <section className="mb-6 overflow-hidden rounded-2xl border bg-card shadow-xs">
-      <div className="bg-[#101c34] px-5 py-4 text-white">
-        <p className="font-bold">{welcome ? "Conta criada! Vamos começar? 🚀" : "Primeiros passos"}</p>
-        <p className="text-sm text-white/70">Em 5 minutos seu controle financeiro está pronto.</p>
-      </div>
-      <ol className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((step, i) => (
-          <li key={step.label} className="bg-card">
-            <Link href={step.href} className="flex h-full gap-3 p-4 hover:bg-muted/50">
-              <span
-                className={cn(
-                  "grid size-7 shrink-0 place-items-center rounded-full border text-xs font-bold",
-                  step.done && "border-transparent bg-income text-white",
-                )}
-              >
-                {step.done ? <Check className="size-4" /> : i + 1}
-              </span>
-              <span>
-                <span className={cn("block text-sm font-semibold", step.done && "text-muted-foreground line-through")}>{step.label}</span>
-                <span className="block text-xs text-muted-foreground">{step.text}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }

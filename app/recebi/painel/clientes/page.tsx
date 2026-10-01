@@ -18,9 +18,10 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Clientes" };
 
-export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ arquivados?: string }> }) {
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ arquivados?: string; novo?: string }> }) {
   const user = await requireUser();
-  const showArchived = (await searchParams).arquivados === "1";
+  const params = await searchParams;
+  const showArchived = params.arquivados === "1";
   const rows = await clientsWithStats(user.id, showArchived);
   const activeCount = rows.filter((r) => !r.client.archived).length;
   const pro = hasPro(user);
@@ -35,6 +36,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
             title="Novo cliente"
             action={saveClient}
             submitLabel="Cadastrar"
+            defaultOpen={params.novo === "1"}
             trigger={
               <Button>
                 <Plus /> Novo cliente

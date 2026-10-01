@@ -550,3 +550,27 @@ export async function getPublicProfile(slug: string) {
   if (!owner) return null;
   return { owner, services: await listServices(owner.id) };
 }
+
+/** Quantos passos do guia de primeiros passos a pessoa já fez. */
+export async function onboardingSnapshot(userId: string) {
+  const db = getDb();
+  const [[clientRow], [quoteRow], [invoiceRow], [incomeRow]] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(clients)
+      .where(eq(clients.userId, userId)),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(quotes)
+      .where(and(eq(quotes.userId, userId), ne(quotes.status, "rascunho"))),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(invoices)
+      .where(and(eq(invoices.userId, userId), ne(invoices.status, "rascunho"))),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(eq(transactions.userId, userId), eq(transactions.type, "receita"))),
+  ]);
+  return { clients: clientRow.n, sentDocuments: quoteRow.n + invoiceRow.n, incomes: incomeRow.n };
+}

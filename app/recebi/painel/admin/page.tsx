@@ -1,20 +1,23 @@
 import { CircleCheck, CircleDashed, Search } from "lucide-react";
 import type { Metadata } from "next";
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { ActionButton } from "@/components/recebi/action-button";
 import { AdminResetLink } from "@/components/recebi/admin-reset-link";
 import { PageHeader } from "@/components/recebi/page-header";
+import { MiniBars } from "@/components/recebi/mini-bars";
 import { StatCard } from "@/components/recebi/stat-card";
 import { getDb } from "@/db";
-import { invoices, payments, transactions, users } from "@/db/schema";
+import { payments, users } from "@/db/schema";
 import { setUserPlan } from "@/lib/recebi/actions/admin";
+import { businessMetrics } from "@/lib/recebi/admin-metrics";
 import { aiEnabled } from "@/lib/recebi/ai";
 import { hasPro, requireAdmin } from "@/lib/recebi/auth";
-import { APP_PATH, PRO_PRICE_CENTS } from "@/lib/recebi/config";
-import { addDays, formatDate, todayISO } from "@/lib/recebi/dates";
+import { APP_PATH } from "@/lib/recebi/config";
+import { formatDate } from "@/lib/recebi/dates";
 import { billingEnabled } from "@/lib/recebi/billing";
 import { emailEnabled, readEnv } from "@/lib/recebi/email";
 import { filesEnabled } from "@/lib/recebi/files";
@@ -27,10 +30,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   await requireAdmin();
   const q = (await searchParams).q?.trim().slice(0, 100) ?? "";
   const db = getDb();
-  const since = addDays(todayISO(), -30);
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, [counts], [invoiceCount], [transactionCount], recentPayments, [revenue]] = await Promise.all([
+  const [list, recentPayments, metrics] = await Promise.all([
     db
       .select()
       .from(users)
@@ -38,27 +40,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       .orderBy(desc(users.createdAt))
       .limit(100),
     db
-      .select({
-        total: sql<number>`count(*)`,
-        pro: sql<number>`coalesce(sum(case when ${users.plan} = 'pro' and (${users.planExpiresAt} is null or ${users.planExpiresAt} >= ${todayISO()}) then 1 else 0 end), 0)`,
-        recent: sql<number>`coalesce(sum(case when ${users.createdAt} >= ${since} then 1 else 0 end), 0)`,
-        demos: sql<number>`coalesce(sum(case when ${users.isDemo} then 1 else 0 end), 0)`,
-      })
-      .from(users),
-    db.select({ count: sql<number>`count(*)` }).from(invoices),
-    db.select({ count: sql<number>`count(*)` }).from(transactions),
-    db
       .select({ payment: payments, email: users.email })
       .from(payments)
       .innerJoin(users, eq(users.id, payments.userId))
       .orderBy(desc(payments.createdAt))
       .limit(10),
-    db
-      .select({
-        month: sql<number>`coalesce(sum(case when ${payments.createdAt} >= ${since} then ${payments.amountCents} else 0 end), 0)`,
-        total: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
-      })
-      .from(payments),
+    businessMetrics(),
   ]);
 
   const integrations = [
@@ -80,32 +67,109 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="Administração" description="Usuários, planos e suporte do Recebi." />
+      <PageHeader title="Administração" description="Números do negócio, usuários, pagamentos e integrações do Recebi." />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Usuários"
-          value={String(counts.total - counts.demos)}
-          hint={`${counts.recent - counts.demos} nos últimos 30 dias · ${counts.demos} demonstrações ativas`}
-        />
-        <StatCard
-          label="Assinantes Pro"
-          value={String(counts.pro)}
-          tone="brand"
-          hint={`Receita mensal estimada: ${formatMoney(counts.pro * PRO_PRICE_CENTS)}`}
-        />
-        <StatCard
-          label="Vendas online (30 dias)"
-          value={formatMoney(revenue.month)}
-          tone="income"
-          hint={`Total pelo Mercado Pago: ${formatMoney(revenue.total)}`}
-        />
-        <StatCard
-          label="Cobranças e lançamentos"
-          value={`${invoiceCount.count} · ${transactionCount.count}`}
-          hint="Criados por todos os usuários"
-        />
-      </div>
+      <section aria-labelledby="numeros" className="grid gap-4">
+        <h2 id="numeros" className="sr-only">
+          Números do negócio
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Receita recorrente (MRR)"
+            value={formatMoney(metrics.pro.mrr)}
+            tone="brand"
+            hint={`${metrics.pro.paying} pagantes · ${formatMoney(metrics.pro.mrr * 12)} por ano`}
+          />
+          <StatCard
+            label="Recebido este mês"
+            value={formatMoney(metrics.revenue.month)}
+            tone="income"
+            hint={`Últimos 30 dias: ${formatMoney(metrics.revenue.last30)} · total ${formatMoney(metrics.revenue.total)}`}
+          />
+          <StatCard
+            label="Usuários"
+            value={metrics.users.total.toLocaleString("pt-BR")}
+            delta={{
+              percent:
+                metrics.users.prev30 > 0 ? Math.round(((metrics.users.new30 - metrics.users.prev30) / metrics.users.prev30) * 100) : null,
+              positiveIsGood: true,
+              label: "novos vs 30 dias antes",
+            }}
+            hint={`${metrics.users.new7} novos em 7 dias · ${metrics.users.new30} em 30 dias`}
+          />
+          <StatCard
+            label="Assinantes Pro"
+            value={metrics.pro.active.toLocaleString("pt-BR")}
+            hint={`Conversão ${metrics.pro.conversion}% · ${metrics.pro.churned30} venceram em 30 dias`}
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="rounded-2xl border bg-card p-5 shadow-xs">
+            <h3 className="font-bold">Cadastros por dia</h3>
+            <p className="mb-6 text-xs text-muted-foreground">Últimos 30 dias, sem contas de demonstração</p>
+            <MiniBars
+              data={metrics.signups}
+              caption="Cadastros por dia nos últimos 30 dias"
+              labelEvery={7}
+              emptyText="Nenhum cadastro nos últimos 30 dias"
+            />
+          </section>
+          <section className="rounded-2xl border bg-card p-5 shadow-xs">
+            <h3 className="font-bold">Receita do Pro por mês</h3>
+            <p className="mb-6 text-xs text-muted-foreground">Pagamentos confirmados, últimos 6 meses</p>
+            <MiniBars
+              data={metrics.revenueByMonth}
+              kind="money"
+              caption="Receita do plano Pro por mês"
+              emptyText="Nenhum pagamento do Pro ainda"
+            />
+          </section>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Ativos" value={`${metrics.users.active7} · ${metrics.users.active30}`} hint="Entraram nos últimos 7 · 30 dias" />
+          <StatCard
+            label="Cobrado pelos usuários"
+            value={formatMoney(metrics.usage.volumePaid30)}
+            hint={`${metrics.usage.invoicesPaid30} cobranças pagas em 30 dias`}
+          />
+          <StatCard
+            label="Indicações"
+            value={metrics.referrals.referred.toLocaleString("pt-BR")}
+            hint={`${metrics.referrals.rewards} viraram assinantes · ${metrics.referrals.months} meses de Pro dados`}
+          />
+          <StatCard
+            label="Ticket médio"
+            value={formatMoney(metrics.revenue.avgTicket)}
+            hint={`${metrics.revenue.payments} pagamentos no total`}
+          />
+        </div>
+
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h3 className="mb-4 font-bold">Uso dos recursos</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ["Chave Pix cadastrada", metrics.adoption.pix],
+              ["E-mail confirmado", metrics.adoption.verified],
+              ["Página pública no ar", metrics.adoption.page],
+              ["Verificação em 2 etapas", metrics.adoption.twoFactor],
+            ].map(([label, value]) => (
+              <div key={label as string}>
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="mt-1 flex items-center gap-2">
+                  <span className="text-lg font-bold tabular-nums">{value}%</span>
+                  <Progress value={value as number} className="h-1.5" aria-label={`${label}: ${value}%`} />
+                </dd>
+              </div>
+            ))}
+            <div>
+              <dt className="text-xs text-muted-foreground">Perguntas à IA (48 h)</dt>
+              <dd className="mt-1 text-lg font-bold tabular-nums">{metrics.usage.aiQuestions48h}</dd>
+            </div>
+          </dl>
+        </section>
+      </section>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border bg-card p-5 shadow-xs">
