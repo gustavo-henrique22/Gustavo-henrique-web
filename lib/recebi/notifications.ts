@@ -34,7 +34,7 @@ async function reserveClientEmail(owner: Pick<User, "id" | "isDemo" | "plan" | "
 }
 const ownerName = (u: Pick<User, "name" | "businessName">) => u.businessName || u.name;
 
-export async function sendWelcomeEmail(user: Pick<User, "name" | "email">) {
+export async function sendWelcomeEmail(user: Pick<User, "name" | "email">, verifyLink?: string) {
   if (!emailEnabled()) return;
   const origin = await siteOrigin();
   await sendEmail({
@@ -46,8 +46,65 @@ export async function sendWelcomeEmail(user: Pick<User, "name" | "email">) {
       paragraphs: [
         "Sua conta no Recebi está pronta. Em poucos minutos você organiza suas finanças de freelancer:",
         "1. Cadastre sua <strong>chave Pix</strong> em Configurações.<br>2. Adicione seus <strong>clientes</strong>.<br>3. Envie um <strong>orçamento</strong> ou uma <strong>cobrança</strong> com link.",
+        ...(verifyLink ? ["Antes de tudo, confirme seu e-mail pelo botão abaixo (o link vale por 48 horas)."] : []),
       ],
-      cta: { label: "Abrir meu painel", url: `${origin}${APP_PATH}` },
+      cta: verifyLink ? { label: "Confirmar meu e-mail", url: verifyLink } : { label: "Abrir meu painel", url: `${origin}${APP_PATH}` },
+    }),
+  });
+}
+
+export async function sendVerificationEmail(user: Pick<User, "name" | "email">, link: string) {
+  return sendEmail({
+    to: user.email,
+    subject: "Confirme seu e-mail no Recebi",
+    html: emailLayout({
+      preheader: "Um clique para confirmar que este e-mail é seu.",
+      title: "Confirme seu e-mail",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}! Confirme que este e-mail é seu para proteger sua conta e recuperar o acesso se precisar.`,
+        "O link vale por 48 horas.",
+      ],
+      cta: { label: "Confirmar meu e-mail", url: link },
+      footer: "Se você não criou uma conta no Recebi, ignore este e-mail.",
+    }),
+  });
+}
+
+export async function sendPasswordChangedEmail(user: Pick<User, "name" | "email" | "isDemo">) {
+  if (!emailEnabled() || user.isDemo) return;
+  const origin = await siteOrigin();
+  await sendEmail({
+    to: user.email,
+    subject: "Sua senha do Recebi foi alterada",
+    html: emailLayout({
+      preheader: "Se não foi você, aja agora.",
+      title: "Senha alterada",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}. A senha da sua conta acabou de ser alterada e os outros aparelhos foram desconectados.`,
+        "Se não foi você, redefina a senha imediatamente pelo link “Esqueci a senha”.",
+      ],
+      cta: { label: "Redefinir a senha", url: `${origin}${BASE_PATH}/esqueci-senha` },
+    }),
+  });
+}
+
+/** Alerta de login em um aparelho que a conta nunca usou. */
+export async function sendNewDeviceEmail(user: Pick<User, "name" | "email" | "isDemo">, device: string, ip: string) {
+  if (!emailEnabled() || user.isDemo) return;
+  const origin = await siteOrigin();
+  const when = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+  await sendEmail({
+    to: user.email,
+    subject: "Novo acesso à sua conta do Recebi",
+    html: emailLayout({
+      preheader: `Entraram na sua conta pelo ${device}.`,
+      title: "Novo acesso à sua conta",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}. Sua conta foi acessada de um aparelho novo:`,
+        `<strong>${escapeHtml(device)}</strong><br>${escapeHtml(when)} (horário de Brasília)${ip ? `<br>IP ${escapeHtml(ip)}` : ""}`,
+        "Se foi você, está tudo certo. Se não foi, troque sua senha agora e saia de todos os aparelhos.",
+      ],
+      cta: { label: "Revisar a segurança da conta", url: `${origin}${APP_PATH}/configuracoes/seguranca` },
     }),
   });
 }

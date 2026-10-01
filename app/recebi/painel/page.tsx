@@ -24,6 +24,7 @@ import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { aiEnabled } from "@/lib/recebi/ai";
+import { emailEnabled } from "@/lib/recebi/email";
 import { requireUser } from "@/lib/recebi/auth";
 import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -134,7 +135,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       {!user.isDemo && !user.onboardingDismissedAt ? (
-        <OnboardingChecklist steps={onboardingSteps(user, onboarding)} welcome={params["bem-vindo"] === "1"} />
+        <OnboardingChecklist steps={onboardingSteps(user, onboarding, emailEnabled())} welcome={params["bem-vindo"] === "1"} />
       ) : null}
 
       <section aria-label="Resumo do mês" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

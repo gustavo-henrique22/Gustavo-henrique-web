@@ -6,6 +6,7 @@ import { securityEvents } from "@/db/schema";
 
 export const SECURITY_EVENT_LABELS: Record<string, string> = {
   login: "Entrou na conta",
+  "conta-criada": "Conta criada",
   "login-google": "Entrou com o Google",
   "login-falhou": "Tentativa de login com senha errada",
   "login-novo-aparelho": "Entrou de um aparelho novo",

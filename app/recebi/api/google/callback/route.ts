@@ -2,9 +2,10 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
-import { createSession, GOOGLE_ONLY_PASSWORD, isAdminEmail } from "@/lib/recebi/auth";
+import { GOOGLE_ONLY_PASSWORD, isAdminEmail } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { fetchGoogleProfile, GOOGLE_STATE_COOKIE, googleEnabled } from "@/lib/recebi/google";
+import { completeLogin } from "@/lib/recebi/login";
 import { sendWelcomeEmail } from "@/lib/recebi/notifications";
 import { siteOrigin } from "@/lib/recebi/origin";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/recebi/referral";
@@ -34,7 +35,10 @@ export async function GET(request: Request) {
     [user] = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
     if (user) {
       // O e-mail já tinha conta com senha: vinculamos o Google a ela (o Google confirmou o e-mail).
-      await db.update(users).set({ googleSub: profile.sub }).where(eq(users.id, user.id));
+      await db
+        .update(users)
+        .set({ googleSub: profile.sub, emailVerifiedAt: user.emailVerifiedAt ?? new Date().toISOString() })
+        .where(eq(users.id, user.id));
     } else {
       const id = crypto.randomUUID();
       await db.insert(users).values({
@@ -43,6 +47,7 @@ export async function GET(request: Request) {
         email: profile.email,
         passwordHash: GOOGLE_ONLY_PASSWORD,
         googleSub: profile.sub,
+        emailVerifiedAt: new Date().toISOString(),
         isAdmin: await isAdminEmail(profile.email),
       });
       const referralCode = jar.get(REFERRAL_COOKIE)?.value;
@@ -55,7 +60,7 @@ export async function GET(request: Request) {
     }
   }
 
-  await createSession(user.id);
+  await completeLogin(user, isNew ? "cadastro" : "google");
   if (isNew) await sendWelcomeEmail(user);
   return Response.redirect(`${origin}${APP_PATH}${isNew ? "?bem-vindo=1" : ""}`, 302);
 }

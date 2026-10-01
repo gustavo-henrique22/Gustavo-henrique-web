@@ -19,7 +19,8 @@ import {
 import { APP_PATH, BASE_PATH } from "../config";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
-import { sendAccountDeletedEmail } from "../notifications";
+import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
+import { logSecurityEvent } from "../security";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -106,6 +107,8 @@ export async function changePassword(_: ActionState, formData: FormData): Promis
     .set({ passwordHash: await hashPassword(next) })
     .where(eq(users.id, user.id));
   await destroyOtherSessions(user.id);
+  await logSecurityEvent(user.id, "senha-alterada");
+  await sendPasswordChangedEmail(user);
   refresh();
   return success(
     googleOnly

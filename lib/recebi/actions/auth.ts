@@ -8,7 +8,7 @@ import { loginAttempts, passwordResets, users } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
 import {
   createPasswordReset,
-  createSession,
+  getCurrentUser,
   GOOGLE_ONLY_PASSWORD,
   destroyAllSessions,
   destroySession,
@@ -20,9 +20,12 @@ import {
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
 import { emailEnabled } from "../email";
+import { verificationLink } from "../email-verification";
+import { completeLogin } from "../login";
 import { sendPasswordResetEmail, sendWelcomeEmail } from "../notifications";
 import { siteOrigin } from "../origin";
 import { applyReferral, REFERRAL_COOKIE } from "../referral";
+import { logSecurityEvent } from "../security";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FAILURES = 8;
@@ -70,8 +73,8 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
     await applyReferral({ id, name, email }, referralCode);
     jar.delete({ name: REFERRAL_COOKIE, path: BASE_PATH });
   }
-  await createSession(id);
-  await sendWelcomeEmail({ name, email });
+  await completeLogin({ id, name, email, isDemo: false }, "cadastro");
+  await sendWelcomeEmail({ name, email }, emailEnabled() ? await verificationLink(id) : undefined);
   redirect(`${APP_PATH}?bem-vindo=1`);
 }
 
@@ -96,16 +99,19 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   const valid = user ? await verifyPassword(password, user.passwordHash) : (await hashPassword(password), false);
   if (!user || !valid) {
     await db.insert(loginAttempts).values({ id: crypto.randomUUID(), email });
+    if (user && !user.isDemo) await logSecurityEvent(user.id, "login-falhou");
     if (user?.passwordHash === GOOGLE_ONLY_PASSWORD) return fail("Esta conta usa o login com Google. Clique em “Entrar com Google”.");
     return fail("E-mail ou senha incorretos.");
   }
 
   await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
-  await createSession(user.id);
+  await completeLogin(user, "senha");
   redirect(safeNext(text(formData, "next", 300)));
 }
 
 export async function signOut(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user && !user.isDemo) await logSecurityEvent(user.id, "logout");
   await destroySession();
   redirect(`${BASE_PATH}/entrar`);
 }
@@ -138,12 +144,16 @@ export async function resetPassword(_: ActionState, formData: FormData): Promise
   if (!reset) return fail("Este link expirou ou já foi usado. Peça um novo.");
 
   const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, reset.userId)).limit(1);
+  if (!user) return fail("Este link expirou ou já foi usado. Peça um novo.");
   await db
     .update(users)
-    .set({ passwordHash: await hashPassword(password) })
+    // Quem recebeu o link no e-mail provou que o e-mail é seu.
+    .set({ passwordHash: await hashPassword(password), emailVerifiedAt: user.emailVerifiedAt ?? new Date().toISOString() })
     .where(eq(users.id, reset.userId));
   await db.update(passwordResets).set({ usedAt: new Date().toISOString() }).where(eq(passwordResets.id, reset.id));
   await destroyAllSessions(reset.userId);
-  await createSession(reset.userId);
+  await logSecurityEvent(reset.userId, "senha-redefinida");
+  await completeLogin(user, "redefinicao");
   redirect(APP_PATH);
 }

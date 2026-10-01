@@ -8,6 +8,7 @@ import { getDb } from "@/db";
 import { loginAttempts, passwordResets, sessions, users, type User } from "@/db/schema";
 import { APP_PATH, BASE_PATH, SESSION_COOKIE, SESSION_DAYS } from "./config";
 import { hashPassword, randomToken, sha256Hex, verifyPassword } from "./crypto";
+import { requestMeta } from "./security";
 
 export { hashPassword, verifyPassword };
 
@@ -39,16 +40,36 @@ export async function isAdminEmail(email: string): Promise<boolean> {
   return count === 0;
 }
 
-export async function createSession(userId: string): Promise<void> {
+export const DEVICE_COOKIE = "recebi_device";
+
+/** Identificador do aparelho (cookie de 2 anos). Guardamos só o hash dele no banco. */
+async function currentDeviceHash(): Promise<string> {
+  const jar = await cookies();
+  let token = jar.get(DEVICE_COOKIE)?.value;
+  if (!token || token.length < 20) {
+    token = randomToken(24);
+    jar.set(DEVICE_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: BASE_PATH, maxAge: 2 * 365 * 86_400 });
+  }
+  return sha256Hex(`device:${token}`);
+}
+
+export async function createSession(userId: string): Promise<{ deviceHash: string; userAgent: string; ip: string }> {
   const token = randomToken();
   const db = getDb();
+  const deviceHash = await currentDeviceHash();
+  const { ip, userAgent } = await requestMeta();
+  const now = new Date().toISOString();
   await db.insert(sessions).values({
     id: await sha256Hex(token),
     userId,
     expiresAt: isoIn(SESSION_DAYS * 86_400_000),
+    deviceId: deviceHash,
+    userAgent,
+    ip,
+    lastSeenAt: now,
   });
   // Limpeza oportunista de sessões vencidas e de contadores antigos (tentativas, limites).
-  await db.delete(sessions).where(lt(sessions.expiresAt, new Date().toISOString()));
+  await db.delete(sessions).where(lt(sessions.expiresAt, now));
   await db
     .delete(loginAttempts)
     .where(lt(loginAttempts.createdAt, new Date(Date.now() - 2 * 86_400_000).toISOString().replace("T", " ").slice(0, 19)));
@@ -61,6 +82,13 @@ export async function createSession(userId: string): Promise<void> {
     path: BASE_PATH,
     maxAge: SESSION_DAYS * 86_400,
   });
+  return { deviceHash, userAgent, ip };
+}
+
+/** Hash da sessão atual (para marcar "este aparelho" na lista de sessões). */
+export async function currentSessionId(): Promise<string | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? sha256Hex(token) : null;
 }
 
 export async function destroySession(): Promise<void> {
@@ -92,14 +120,25 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const [row] = await getDb()
-    .select({ user: users })
+  const sessionId = await sha256Hex(token);
+  const db = getDb();
+  const [row] = await db
+    .select({ user: users, lastSeenAt: sessions.lastSeenAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.id, await sha256Hex(token)), gt(sessions.expiresAt, new Date().toISOString())))
+    .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, new Date().toISOString())))
     .limit(1);
+  if (!row) return null;
 
-  return row?.user ?? null;
+  // "Último acesso" da sessão, atualizado no máximo a cada 15 minutos.
+  const now = Date.now();
+  if (!row.lastSeenAt || now - Date.parse(row.lastSeenAt) > 15 * 60_000) {
+    await db
+      .update(sessions)
+      .set({ lastSeenAt: new Date(now).toISOString() })
+      .where(eq(sessions.id, sessionId));
+  }
+  return row.user;
 });
 
 export async function requireUser(): Promise<User> {

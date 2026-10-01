@@ -12,8 +12,9 @@ type Snapshot = { clients: number; sentDocuments: number; incomes: number };
 export function onboardingSteps(
   user: Pick<User, "businessName" | "document" | "pixKey" | "monthlyGoalCents" | "publicProfile" | "emailVerifiedAt">,
   data: Snapshot,
+  emailOn: boolean,
 ) {
-  return [
+  const steps = [
     {
       done: !!user.emailVerifiedAt,
       label: "Confirme seu e-mail",
@@ -71,6 +72,8 @@ export function onboardingSteps(
       cta: "Publicar",
     },
   ];
+  // Sem envio de e-mails no site, não dá para confirmar: o passo não aparece.
+  return emailOn ? steps : steps.slice(1);
 }
 
 /** Guia de primeiros passos do painel. Some quando tudo estiver feito ou quando a pessoa esconder. */

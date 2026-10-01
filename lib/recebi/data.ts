@@ -1,6 +1,6 @@
 // Consultas de leitura usadas pelas páginas do painel. Toda consulta filtra
 // pelo usuário logado; nunca chame estas funções com um id vindo do formulário.
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   categoryRules,
@@ -13,6 +13,7 @@ import {
   quotes,
   recurringInvoices,
   services,
+  sessions,
   timeEntries,
   transactions,
   users,
@@ -573,4 +574,19 @@ export async function onboardingSnapshot(userId: string) {
       .where(and(eq(transactions.userId, userId), eq(transactions.type, "receita"))),
   ]);
   return { clients: clientRow.n, sentDocuments: quoteRow.n + invoiceRow.n, incomes: incomeRow.n };
+}
+
+export async function listSessions(userId: string) {
+  return getDb()
+    .select({
+      id: sessions.id,
+      userAgent: sessions.userAgent,
+      ip: sessions.ip,
+      createdAt: sessions.createdAt,
+      lastSeenAt: sessions.lastSeenAt,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date().toISOString())))
+    .orderBy(desc(sql`coalesce(${sessions.lastSeenAt}, ${sessions.createdAt})`));
 }
