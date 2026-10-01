@@ -5,9 +5,16 @@ import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, nonce }: { children: React.ReactNode; nonce?: string }) {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="recebi-theme">
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      storageKey="recebi-theme"
+      nonce={nonce}
+    >
       {children}
     </NextThemesProvider>
   );

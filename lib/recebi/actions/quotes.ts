@@ -15,6 +15,7 @@ import { createInvoice, nextQuoteNumber, parseItems } from "../documents";
 import { logEvent, notify, requestIp } from "../activity";
 import { formatMoney, parseMoney } from "../money";
 import { notifyQuoteDecision, sendQuoteEmail } from "../notifications";
+import { takeRateLimit } from "../rate-limit";
 
 const PAYMENT_TERMS = [0, 3, 7, 10, 15, 30];
 
@@ -225,8 +226,15 @@ async function findPublicQuote(token: string) {
 }
 
 /** Ação pública: o cliente aprova pelo link. */
+/** Limite das respostas pelo link público (por conexão), contra robôs. */
+async function publicLinkAllowed(): Promise<boolean> {
+  const ip = await requestIp();
+  return !ip || (await takeRateLimit(`link-publico:${ip}`, 30, 3_600_000));
+}
+
 export async function approveQuoteByClient(_: ActionState, formData: FormData): Promise<ActionState> {
   const token = text(formData, "token", 64);
+  if (!(await publicLinkAllowed())) return fail("Muitas tentativas. Tente de novo em uma hora.");
   const quote = await findPublicQuote(token);
   if (!quote || quote.status === "rascunho") return fail("Orçamento não encontrado.");
   if (quote.status === "aprovado") return fail("Este orçamento já foi aprovado.");
@@ -253,6 +261,7 @@ export async function approveQuoteByClient(_: ActionState, formData: FormData): 
 export async function rejectQuoteByClient(_: ActionState, formData: FormData): Promise<ActionState> {
   const token = text(formData, "token", 64);
   const note = text(formData, "note", 500);
+  if (!(await publicLinkAllowed())) return fail("Muitas tentativas. Tente de novo em uma hora.");
   const quote = await findPublicQuote(token);
   if (!quote || quote.status !== "enviado") return fail("Este orçamento não está aguardando resposta.");
 

@@ -30,6 +30,7 @@ const pay = await vite.ssrLoadModule("/lib/recebi/payment-providers.ts");
 const nfse = await vite.ssrLoadModule("/lib/recebi/nfse-payload.ts");
 const totp = await vite.ssrLoadModule("/lib/recebi/totp.ts");
 const passwords = await vite.ssrLoadModule("/lib/recebi/password-policy.ts");
+const headers = await vite.ssrLoadModule("/lib/recebi/security-headers.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -498,4 +499,32 @@ test("refuses weak and leaked passwords", async () => {
     throw new Error("offline");
   };
   assert.equal(await passwords.passwordProblem(phrase, {}, offline), null);
+});
+
+test("sets strict security headers and blocks cross-site writes", () => {
+  const prod = headers.securityHeaders({ nonce: "abc123", dev: false });
+  const csp = prod["Content-Security-Policy"];
+  assert.match(csp, /script-src 'self' 'nonce-abc123' 'strict-dynamic'/);
+  assert.doesNotMatch(csp, /unsafe-inline' 'unsafe-eval|script-src[^;]*unsafe-inline/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /frame-ancestors 'self'/);
+  assert.match(csp, /base-uri 'self'/);
+  assert.equal(prod["Strict-Transport-Security"], "max-age=31536000");
+  assert.equal(prod["X-Content-Type-Options"], "nosniff");
+  assert.equal(prod["X-Frame-Options"], "SAMEORIGIN");
+  assert.equal(headers.securityHeaders({ nonce: "x", dev: true })["Strict-Transport-Security"], undefined);
+  assert.match(headers.createNonce(), /^[A-Za-z0-9+/]{22}==$/);
+  assert.notEqual(headers.createNonce(), headers.createNonce());
+
+  const base = { method: "POST", pathname: "/recebi/entrar", host: "meusite.com", origin: null, secFetchSite: null };
+  assert.equal(headers.isCrossSiteRequest({ ...base, origin: "https://meusite.com" }), false);
+  assert.equal(headers.isCrossSiteRequest({ ...base, origin: "https://golpe.com" }), true);
+  assert.equal(headers.isCrossSiteRequest({ ...base, origin: "null" }), true);
+  assert.equal(headers.isCrossSiteRequest({ ...base, secFetchSite: "cross-site" }), true);
+  assert.equal(headers.isCrossSiteRequest({ ...base, secFetchSite: "same-site" }), true);
+  assert.equal(headers.isCrossSiteRequest({ ...base, secFetchSite: "same-origin" }), false);
+  assert.equal(headers.isCrossSiteRequest(base), false); // servidor para servidor
+  assert.equal(headers.isCrossSiteRequest({ ...base, method: "GET", origin: "https://golpe.com" }), false);
+  // Webhooks de pagamento vêm de outros servidores.
+  assert.equal(headers.isCrossSiteRequest({ ...base, pathname: "/recebi/api/pagamentos/kiwify", origin: "https://kiwify.com.br" }), false);
 });

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { headers } from "next/headers";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/recebi/pwa";
 import { ThemeProvider } from "@/components/recebi/theme";
@@ -35,9 +36,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RecebiLayout({ children }: { children: React.ReactNode }) {
+export default async function RecebiLayout({ children }: { children: React.ReactNode }) {
+  // Nonce da política de segurança (proxy.ts): libera o script do tema, que roda antes da página aparecer.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <ThemeProvider>
+    <ThemeProvider nonce={nonce}>
       <div className={`recebi ${manrope.variable} font-sans antialiased`}>
         {/* Diálogos e menus são renderizados fora deste wrapper; a fonte precisa valer no documento todo. */}
         <style>{`:root{--font-recebi:${manrope.style.fontFamily}}`}</style>
