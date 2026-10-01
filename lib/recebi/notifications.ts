@@ -215,6 +215,26 @@ export async function sendReceiptEmail(invoiceId: string) {
   });
 }
 
+/** Avisa quem convidou que ganhou 1 mês de Pro. */
+export async function sendReferralRewardEmail(user: Pick<User, "name" | "email" | "isDemo">, friendName: string, until: string) {
+  if (!emailEnabled() || user.isDemo) return;
+  const origin = await siteOrigin();
+  await sendEmail({
+    to: user.email,
+    subject: "Você ganhou 1 mês de Recebi Pro 🎁",
+    html: emailLayout({
+      preheader: `${friendName} assinou o Recebi com o seu convite.`,
+      title: "Obrigado por indicar o Recebi!",
+      paragraphs: [
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}! <strong>${escapeHtml(friendName)}</strong> assinou o Pro com o seu convite.`,
+        `Como prometido, você ganhou 1 mês de Pro. Seu plano agora vale até <strong>${formatDate(until)}</strong>.`,
+        "Continue indicando: cada amigo que assinar vale mais um mês.",
+      ],
+      cta: { label: "Ver meus convites", url: `${origin}${APP_PATH}/indique` },
+    }),
+  });
+}
+
 /** Confirmação da exclusão da conta (LGPD). */
 export async function sendAccountDeletedEmail(user: Pick<User, "name" | "email" | "isDemo">) {
   if (!emailEnabled() || user.isDemo) return;

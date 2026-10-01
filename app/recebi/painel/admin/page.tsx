@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ActionButton } from "@/components/recebi/action-button";
+import { ActionForm } from "@/components/recebi/action-form";
 import { AdminResetLink } from "@/components/recebi/admin-reset-link";
 import { PageHeader } from "@/components/recebi/page-header";
 import { MiniBars } from "@/components/recebi/mini-bars";
 import { StatCard } from "@/components/recebi/stat-card";
 import { getDb } from "@/db";
 import { payments, users } from "@/db/schema";
-import { setUserPlan } from "@/lib/recebi/actions/admin";
+import { adminAssignPayment, setUserPlan } from "@/lib/recebi/actions/admin";
 import { businessMetrics } from "@/lib/recebi/admin-metrics";
 import { aiEnabled } from "@/lib/recebi/ai";
 import { hasPro, requireAdmin } from "@/lib/recebi/auth";
@@ -20,6 +21,8 @@ import { APP_PATH } from "@/lib/recebi/config";
 import { formatDate } from "@/lib/recebi/dates";
 import { billingEnabled } from "@/lib/recebi/billing";
 import { emailEnabled, readEnv } from "@/lib/recebi/email";
+import { encryptionEnabled } from "@/lib/recebi/encryption";
+import { externalCheckoutEnabled, unmatchedPayments } from "@/lib/recebi/external-billing";
 import { filesEnabled } from "@/lib/recebi/files";
 import { googleEnabled } from "@/lib/recebi/google";
 import { formatMoney } from "@/lib/recebi/money";
@@ -32,7 +35,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const db = getDb();
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, recentPayments, metrics] = await Promise.all([
+  const [list, recentPayments, metrics, unmatched] = await Promise.all([
     db
       .select()
       .from(users)
@@ -46,14 +49,35 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       .orderBy(desc(payments.createdAt))
       .limit(10),
     businessMetrics(),
+    unmatchedPayments(),
   ]);
 
   const integrations = [
     { name: "Envio de e-mails (Resend)", on: emailEnabled(), how: "RESEND_API_KEY e RECEBI_EMAIL_FROM" },
     {
-      name: "Venda automática do Pro (Mercado Pago)",
+      name: "Venda do Pro por link (Kiwify ou Shopify)",
+      on: externalCheckoutEnabled(),
+      how: "RECEBI_CHECKOUT_MENSAL_URL e RECEBI_CHECKOUT_ANUAL_URL",
+    },
+    {
+      name: "Liberação automática pela Kiwify",
+      on: !!readEnv("KIWIFY_WEBHOOK_TOKEN"),
+      how: "KIWIFY_WEBHOOK_TOKEN + webhook para /recebi/api/pagamentos/kiwify",
+    },
+    {
+      name: "Liberação automática pela Shopify",
+      on: !!readEnv("SHOPIFY_WEBHOOK_SECRET"),
+      how: "SHOPIFY_WEBHOOK_SECRET + webhook para /recebi/api/pagamentos/shopify",
+    },
+    {
+      name: "Venda pelo Mercado Pago (alternativa)",
       on: billingEnabled(),
       how: "MERCADOPAGO_ACCESS_TOKEN (e MERCADOPAGO_WEBHOOK_SECRET)",
+    },
+    {
+      name: "Criptografia dos dados sensíveis",
+      on: encryptionEnabled(),
+      how: "RECEBI_ENCRYPTION_KEY com 32+ caracteres aleatórios (guarde uma cópia em local seguro)",
     },
     { name: "Login com Google", on: googleEnabled(), how: "GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET" },
     { name: "Assistente e orçamentos com IA (Claude)", on: aiEnabled(), how: "ANTHROPIC_API_KEY (crie em console.anthropic.com)" },
@@ -202,7 +226,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{email}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {formatDate(payment.createdAt.slice(0, 10))} · {payment.months === 12 ? "anual" : `${payment.months} mês`}
+                      {formatDate(payment.createdAt.slice(0, 10))} · {payment.months === 12 ? "anual" : `${payment.months} mês`} ·{" "}
+                      {payment.provider}
+                      {payment.status === "estornado" ? " · estornado" : ""}
                     </span>
                   </span>
                   <span className="font-semibold text-income tabular">{formatMoney(payment.amountCents)}</span>
@@ -212,6 +238,39 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           )}
         </section>
       </div>
+
+      {unmatched.length > 0 ? (
+        <section className="mt-4 rounded-2xl border border-warning/40 bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Pagamentos sem conta ({unmatched.length})</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            A pessoa pagou com um e-mail que não tem conta no Recebi. Confirme com ela e informe o e-mail da conta para liberar o Pro.
+          </p>
+          <ul className="grid gap-3">
+            {unmatched.map((payment) => (
+              <li key={payment.id} className="grid gap-3 rounded-xl border p-3 text-sm md:grid-cols-[1fr_auto] md:items-center">
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">{payment.email || "sem e-mail"}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {payment.provider} · pedido {payment.externalId} · {formatMoney(payment.amountCents)} ·{" "}
+                    {payment.months === 12 ? "anual" : "mensal"} · {formatDate(payment.createdAt.slice(0, 10))}
+                  </span>
+                </span>
+                <ActionForm action={adminAssignPayment} submitLabel="Liberar Pro" className="flex flex-wrap items-start gap-2">
+                  <input type="hidden" name="id" value={payment.id} />
+                  <Input
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="E-mail da conta"
+                    className="h-9 w-56"
+                    aria-label="E-mail da conta"
+                  />
+                </ActionForm>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {!emailEnabled() ? (
         <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">

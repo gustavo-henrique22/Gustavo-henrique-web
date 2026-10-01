@@ -4,6 +4,7 @@ import {
   ChartColumn,
   FileSignature,
   FolderKanban,
+  Gift,
   Globe,
   LayoutDashboard,
   ReceiptText,
@@ -33,6 +34,7 @@ export const MAIN_NAV = [
 export const ACCOUNT_NAV = [
   { href: `${APP_PATH}/configuracoes`, label: "Configurações", icon: Settings },
   { href: `${APP_PATH}/plano`, label: "Plano", icon: Sparkles },
+  { href: `${APP_PATH}/indique`, label: "Indique e ganhe", icon: Gift },
 ];
 
 export const ADMIN_NAV = { href: `${APP_PATH}/admin`, label: "Admin", icon: ShieldCheck };

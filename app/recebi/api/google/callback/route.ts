@@ -7,6 +7,7 @@ import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { fetchGoogleProfile, GOOGLE_STATE_COOKIE, googleEnabled } from "@/lib/recebi/google";
 import { sendWelcomeEmail } from "@/lib/recebi/notifications";
 import { siteOrigin } from "@/lib/recebi/origin";
+import { applyReferral, REFERRAL_COOKIE } from "@/lib/recebi/referral";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,11 @@ export async function GET(request: Request) {
         googleSub: profile.sub,
         isAdmin: await isAdminEmail(profile.email),
       });
+      const referralCode = jar.get(REFERRAL_COOKIE)?.value;
+      if (referralCode) {
+        await applyReferral({ id, name: profile.name, email: profile.email }, referralCode);
+        jar.delete({ name: REFERRAL_COOKIE, path: BASE_PATH });
+      }
       [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
       isNew = true;
     }

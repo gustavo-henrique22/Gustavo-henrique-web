@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +26,7 @@ const extenso = await vite.ssrLoadModule("/lib/recebi/extenso.ts");
 const statement = await vite.ssrLoadModule("/lib/recebi/statement.ts");
 const slug = await vite.ssrLoadModule("/lib/recebi/slug.ts");
 const enc = await vite.ssrLoadModule("/lib/recebi/encryption-core.ts");
+const pay = await vite.ssrLoadModule("/lib/recebi/payment-providers.ts");
 
 test("parses money typed in Brazilian and international formats", () => {
   assert.equal(money.parseMoney("1.234,56"), 123456);
@@ -264,4 +266,67 @@ test("encrypts sensitive fields with AES-GCM bound to their context", async () =
   assert.equal(await enc.encryptWith("curta", "sem chave", "x"), "sem chave");
   assert.equal(await enc.needsReencryptionWith(other, sealed), true);
   assert.equal(await enc.needsReencryptionWith(key, sealed), false);
+});
+
+test("reads and verifies Kiwify payment notices", async () => {
+  const body = JSON.stringify({
+    order_id: "kiw-123",
+    order_status: "paid",
+    webhook_event_type: "order_approved",
+    Customer: { full_name: "Ana Lima", email: "Ana@Exemplo.com" },
+    Commissions: { charge_amount: 19900 },
+    Product: { product_name: "Recebi Pro" },
+    Subscription: { id: "sub-1", plan: { name: "Plano Anual", frequency: "yearly" } },
+    TrackingParameters: { sck: "0b6c1d2e-1111-4222-8333-444455556666" },
+  });
+  const token = "token-kiwify";
+  const signature = createHmac("sha1", token).update(body).digest("hex");
+  assert.equal(await pay.verifyKiwifySignature(body, signature, token), true);
+  assert.equal(await pay.verifyKiwifySignature(body, signature, "outro"), false);
+  assert.equal(await pay.verifyKiwifySignature(body.replace("19900", "99900"), signature, token), false);
+  assert.equal(await pay.verifyKiwifySignature(body, null, token), false);
+  const pretty = JSON.stringify(JSON.parse(body), null, 2);
+  assert.equal(await pay.verifyKiwifySignature(pretty, signature, token), true);
+
+  const event = pay.parseKiwify(JSON.parse(body));
+  assert.equal(event.kind, "pagamento");
+  assert.equal(event.months, 12);
+  assert.equal(event.amountCents, 19900);
+  assert.equal(event.email, "Ana@Exemplo.com");
+  assert.equal(event.userHint, "0b6c1d2e-1111-4222-8333-444455556666");
+  assert.equal(
+    pay.parseKiwify({ order_id: "x", order_status: "paid", webhook_event_type: "order_approved", Commissions: { charge_amount: "19.90" } })
+      .months,
+    1,
+  );
+  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "refunded", webhook_event_type: "order_refunded" }).kind, "reembolso");
+  assert.equal(pay.parseKiwify({ order_id: "x", webhook_event_type: "subscription_canceled" }).kind, "cancelamento");
+  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "waiting_payment", webhook_event_type: "pix_created" }), null);
+  assert.equal(pay.parseKiwify({ order_id: "x", order_status: "refused", webhook_event_type: "order_approved" }), null);
+});
+
+test("reads and verifies Shopify payment notices", async () => {
+  const body = JSON.stringify({
+    id: 820982911946154500,
+    email: "joao@exemplo.com",
+    financial_status: "paid",
+    total_price: "19.90",
+    line_items: [{ title: "Recebi Pro", variant_title: "Mensal", sku: "RECEBI-PRO-MENSAL" }],
+    note_attributes: [{ name: "recebi_user", value: "abc" }],
+  });
+  const secret = "segredo-shopify";
+  const header = createHmac("sha256", secret).update(body).digest("base64");
+  assert.equal(await pay.verifyShopifySignature(body, header, secret), true);
+  assert.equal(await pay.verifyShopifySignature(body, header, "errado"), false);
+  const event = pay.parseShopify("orders/paid", JSON.parse(body));
+  assert.equal(event.kind, "pagamento");
+  assert.equal(event.amountCents, 1990);
+  assert.equal(event.months, 1);
+  assert.equal(event.userHint, "abc");
+  assert.equal(pay.parseShopify("orders/paid", { id: 1, financial_status: "paid", total_price: "199.00", line_items: [] }).months, 12);
+  assert.equal(pay.parseShopify("refunds/create", { order_id: 1 }).kind, "reembolso");
+  assert.equal(pay.parseShopify("orders/cancelled", { id: 1, financial_status: "paid" }), null);
+  assert.equal(pay.parseShopify("orders/create", { id: 1 }), null);
+  assert.equal(pay.toCents("R$ 1.234,56"), 123456);
+  assert.equal(pay.toCents(19.9), 1990);
 });

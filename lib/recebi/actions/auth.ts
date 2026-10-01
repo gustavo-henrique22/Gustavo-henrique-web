@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq, gte, sql } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { loginAttempts, passwordResets, users } from "@/db/schema";
@@ -21,6 +22,7 @@ import { APP_PATH, BASE_PATH } from "../config";
 import { emailEnabled } from "../email";
 import { sendPasswordResetEmail, sendWelcomeEmail } from "../notifications";
 import { siteOrigin } from "../origin";
+import { applyReferral, REFERRAL_COOKIE } from "../referral";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FAILURES = 8;
@@ -61,6 +63,13 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
     passwordHash: await hashPassword(password),
     isAdmin: await isAdminEmail(email),
   });
+  // Convite: código do formulário ou do cookie deixado pelo link /recebi/convite/<código>.
+  const jar = await cookies();
+  const referralCode = text(formData, "ref", 20) || jar.get(REFERRAL_COOKIE)?.value || "";
+  if (referralCode) {
+    await applyReferral({ id, name, email }, referralCode);
+    jar.delete({ name: REFERRAL_COOKIE, path: BASE_PATH });
+  }
   await createSession(id);
   await sendWelcomeEmail({ name, email });
   redirect(`${APP_PATH}?bem-vindo=1`);

@@ -50,10 +50,11 @@ export function SignInForm({ next }: { next?: string }) {
   );
 }
 
-export function SignUpForm() {
+export function SignUpForm({ referralCode }: { referralCode?: string }) {
   const { state, pending, onSubmit } = useActionForm(signUp);
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
+      {referralCode ? <input type="hidden" name="ref" value={referralCode} /> : null}
       <Field label={<Label htmlFor="name">Seu nome</Label>}>
         <Input id="name" name="name" autoComplete="name" required placeholder="Ana Souza" />
       </Field>

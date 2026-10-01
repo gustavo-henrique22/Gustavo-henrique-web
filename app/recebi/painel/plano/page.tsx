@@ -1,14 +1,19 @@
-import { Check, CheckCircle2, Clock, CreditCard, MessageCircle, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Check, CheckCircle2, Clock, CreditCard, Gift, MessageCircle, Sparkles, TriangleAlert, X } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ActionForm } from "@/components/recebi/action-form";
+import { FormField } from "@/components/recebi/fields";
 import { PageHeader } from "@/components/recebi/page-header";
 import { SubmitButton } from "@/components/recebi/submit-button";
-import { startCheckout } from "@/lib/recebi/actions/billing";
+import { claimExternalPayment, startCheckout } from "@/lib/recebi/actions/billing";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { billingEnabled, processPayment } from "@/lib/recebi/billing";
-import { FREE_LIMITS, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS, whatsappLink } from "@/lib/recebi/config";
+import { APP_PATH, FREE_LIMITS, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS, whatsappLink } from "@/lib/recebi/config";
 import { countActiveClients, countInvoicesInMonth, countQuotesInMonth, getUserById } from "@/lib/recebi/data";
 import { currentMonth, formatDate } from "@/lib/recebi/dates";
+import { checkoutProviderName, externalCheckoutEnabled, externalCheckoutUrl } from "@/lib/recebi/external-billing";
 import { formatMoney } from "@/lib/recebi/money";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +60,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     countInvoicesInMonth(user.id, currentMonth()),
     countQuotesInMonth(user.id, currentMonth()),
   ]);
-  const online = billingEnabled() && !user.isDemo;
+  const external = externalCheckoutEnabled() && !user.isDemo;
+  const online = !external && billingEnabled() && !user.isDemo;
+  const providerName = external ? checkoutProviderName() : "Mercado Pago";
   const message = `Olá! Quero ${pro ? "renovar" : "assinar"} o plano Pro do Recebi. Meu e-mail de cadastro é ${user.email}.`;
 
   return (
@@ -65,6 +72,14 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       {result === "ativado" || result === "ja-processado" ? (
         <Banner tone="ok" icon={<CheckCircle2 className="size-5" />}>
           Pagamento aprovado! Seu Pro está ativo até {formatDate(fresh.planExpiresAt)}. Obrigado pela confiança. ✨
+        </Banner>
+      ) : pagamento === "externo" && !pro ? (
+        <Banner tone="wait" icon={<Clock className="size-5" />}>
+          Recebemos seu pedido! Assim que {providerName} confirmar o pagamento, o Pro é liberado sozinho (no Pix leva segundos).
+        </Banner>
+      ) : pagamento === "externo" && pro ? (
+        <Banner tone="ok" icon={<CheckCircle2 className="size-5" />}>
+          Pagamento confirmado! Seu Pro está ativo até {formatDate(fresh.planExpiresAt)}. Obrigado pela confiança. ✨
         </Banner>
       ) : pagamento === "pendente" || result === "pendente" ? (
         <Banner tone="wait" icon={<Clock className="size-5" />}>
@@ -100,6 +115,18 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               <Usage label="Cobranças este mês" used={invoices} limit={FREE_LIMITS.invoicesPerMonth} />
             </dl>
           )}
+          {!user.isDemo ? (
+            <Link
+              href={`${APP_PATH}/indique`}
+              className="mt-6 flex items-center gap-3 rounded-xl border border-dashed p-3 text-sm transition hover:border-foreground/30"
+            >
+              <Gift className="size-5 shrink-0" />
+              <span>
+                <span className="font-semibold">Ganhe meses de Pro grátis</span>
+                <span className="block text-xs text-muted-foreground">Cada amigo que assinar pelo seu convite vale 1 mês.</span>
+              </span>
+            </Link>
+          ) : null}
         </section>
 
         <section className="relative overflow-hidden rounded-2xl bg-[#101c34] p-6 text-white shadow-lg">
@@ -113,6 +140,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <div className="relative mt-5 grid gap-3 sm:grid-cols-2">
             <PlanOption
               plan="mensal"
+              externalUrl={external ? externalCheckoutUrl(user, "mensal") : null}
               title="Mensal"
               price={formatMoney(PRO_PRICE_CENTS)}
               period="/mês"
@@ -123,6 +151,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             />
             <PlanOption
               plan="anual"
+              externalUrl={external ? externalCheckoutUrl(user, "anual") : null}
               title="Anual"
               price={formatMoney(PRO_YEARLY_PRICE_CENTS)}
               period="/ano"
@@ -134,7 +163,12 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             />
           </div>
           <p className="relative mt-4 flex items-center gap-1.5 text-xs text-white/60">
-            {online ? (
+            {external ? (
+              <>
+                <CreditCard className="size-3.5" /> Pagamento seguro pela {providerName}: Pix, cartão ou boleto. Use o e-mail {user.email}{" "}
+                para a liberação ser automática.
+              </>
+            ) : online ? (
               <>
                 <CreditCard className="size-3.5" /> Pagamento seguro pelo Mercado Pago: Pix, cartão ou boleto. Liberação automática.
               </>
@@ -146,6 +180,27 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           </p>
         </section>
       </div>
+
+      {external ? (
+        <section className="mt-4 grid gap-4 rounded-2xl border bg-card p-5 shadow-xs lg:grid-cols-[280px_1fr]">
+          <div>
+            <h2 className="font-bold">Pagou com outro e-mail?</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Informe o número do pedido que chegou no seu e-mail ({providerName}) e o e-mail usado no pagamento.
+            </p>
+          </div>
+          <ActionForm action={claimExternalPayment} submitLabel="Liberar meu Pro" resetOnSuccess>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField id="orderId" label="Número do pedido">
+                <Input id="orderId" name="orderId" required maxLength={120} autoComplete="off" />
+              </FormField>
+              <FormField id="claimEmail" label="E-mail do pagamento">
+                <Input id="claimEmail" name="email" type="email" required maxLength={200} />
+              </FormField>
+            </div>
+          </ActionForm>
+        </section>
+      ) : null}
 
       <section className="mt-4 overflow-hidden rounded-2xl border bg-card shadow-xs">
         <table className="w-full text-sm">
@@ -193,6 +248,7 @@ function Banner({ tone, icon, children }: { tone: "ok" | "wait" | "error"; icon:
 
 function PlanOption({
   plan,
+  externalUrl,
   title,
   price,
   period,
@@ -203,6 +259,7 @@ function PlanOption({
   highlight,
 }: {
   plan: "mensal" | "anual";
+  externalUrl: string | null;
   title: string;
   price: string;
   period: string;
@@ -228,7 +285,13 @@ function PlanOption({
         <span className="text-sm font-medium text-white/60">{period}</span>
       </p>
       <p className="mt-1 text-xs text-white/60">{note}</p>
-      {online ? (
+      {externalUrl ? (
+        <Button asChild className="mt-4 w-full bg-[#c9ff3c] text-[#101c34] hover:bg-[#c9ff3c]/90">
+          <a href={externalUrl} target="_blank" rel="noreferrer">
+            <CreditCard /> {label} {title.toLowerCase()}
+          </a>
+        </Button>
+      ) : online ? (
         <form action={startCheckout} className="mt-4">
           <input type="hidden" name="plan" value={plan} />
           <SubmitButton className="w-full bg-[#c9ff3c] text-[#101c34] hover:bg-[#c9ff3c]/90" pendingLabel="Abrindo pagamento…">

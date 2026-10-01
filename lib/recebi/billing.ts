@@ -9,6 +9,7 @@ import { APP_PATH, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS } from "./config";
 import { addMonthsToDate, todayISO } from "./dates";
 import { readEnv } from "./email";
 import { sendProActivatedEmail } from "./notifications";
+import { grantReferralReward } from "./referral";
 
 export const PRO_PLANS = {
   mensal: { months: 1, priceCents: PRO_PRICE_CENTS, title: "Recebi Pro — 1 mês" },
@@ -101,6 +102,7 @@ export async function processPayment(
     href: "/recebi/painel/plano",
   });
   await sendProActivatedEmail(user, until);
+  await grantReferralReward(user.id);
   return "ativado";
 }
 

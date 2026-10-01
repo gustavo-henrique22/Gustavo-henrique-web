@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
-import { createPasswordReset, requireAdmin } from "../auth";
+import { createPasswordReset, normalizeEmail, requireAdmin } from "../auth";
 import { extendPro } from "../billing";
 import { APP_PATH, BASE_PATH } from "../config";
+import { assignExternalPayment } from "../external-billing";
 import { siteOrigin } from "../origin";
 
 export async function setUserPlan(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -37,4 +38,15 @@ export async function createResetLink(_: ActionState, formData: FormData): Promi
   if (!target) return fail("Usuário não encontrado.");
   const token = await createPasswordReset(target.id);
   return success(`${await siteOrigin()}${BASE_PATH}/redefinir-senha/${token}`);
+}
+
+/** Admin: vincula um pagamento externo sem conta à conta com o e-mail informado. */
+export async function adminAssignPayment(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const email = normalizeEmail(text(formData, "email", 200));
+  const [user] = await getDb().select().from(users).where(eq(users.email, email)).limit(1);
+  if (!user) return fail("Não existe conta com esse e-mail.");
+  if (!(await assignExternalPayment(text(formData, "id", 64), user))) return fail("Esse pagamento já foi vinculado.");
+  revalidatePath(APP_PATH, "layout");
+  return success(`Pro liberado para ${user.email}.`);
 }
