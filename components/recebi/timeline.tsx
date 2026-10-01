@@ -1,4 +1,21 @@
-import { Ban, Bell, Check, CheckCheck, Eye, FilePlus2, Mail, Receipt, Repeat, Send, ThumbsDown, Undo2, Wallet } from "lucide-react";
+import {
+  Ban,
+  Bell,
+  Check,
+  CheckCheck,
+  Eye,
+  FilePlus2,
+  Link2,
+  Link2Off,
+  Mail,
+  Receipt,
+  RefreshCw,
+  Repeat,
+  Send,
+  ThumbsDown,
+  Undo2,
+  Wallet,
+} from "lucide-react";
 import { EVENT_LABELS } from "@/lib/recebi/activity";
 import { formatDateTime, formatRelative } from "@/lib/recebi/dates";
 import { cn } from "@/lib/utils";
@@ -19,6 +36,9 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   recorrente: Repeat,
   "pedido-site": FilePlus2,
   nfse: Receipt,
+  "link-desativado": Link2Off,
+  "link-reativado": Link2,
+  "link-trocado": RefreshCw,
 };
 
 const TONES: Record<string, string> = {

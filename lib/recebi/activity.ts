@@ -22,6 +22,9 @@ export const EVENT_LABELS: Record<string, string> = {
   recorrente: "Gerada pela cobrança recorrente",
   "pedido-site": "Criado a partir de um pedido da sua página",
   nfse: "Nota fiscal",
+  "link-desativado": "Link desativado",
+  "link-reativado": "Link reativado",
+  "link-trocado": "Link trocado (o antigo parou de funcionar)",
 };
 
 export async function logEvent(userId: string, documentType: DocumentType, documentId: string, type: string, detail = "") {

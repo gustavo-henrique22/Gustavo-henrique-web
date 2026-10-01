@@ -150,7 +150,10 @@ export async function sendInvoiceEmail(userId: string, invoiceId: string, kind: 
     .leftJoin(clients, eq(clients.id, invoices.clientId))
     .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, userId)))
     .limit(1);
-  if (!row?.client?.email || row.invoice.status !== "enviada" || !(await reserveClientEmail(row.owner))) return false;
+  // Link desativado: o cliente não conseguiria abrir, então não enviamos.
+  if (!row?.client?.email || row.invoice.status !== "enviada" || row.invoice.linkDisabledAt || !(await reserveClientEmail(row.owner))) {
+    return false;
+  }
   const { invoice, client, owner } = row;
   const origin = await siteOrigin();
   const name = ownerName(owner);
@@ -196,7 +199,9 @@ export async function sendQuoteEmail(userId: string, quoteId: string) {
     .leftJoin(clients, eq(clients.id, quotes.clientId))
     .where(and(eq(quotes.id, quoteId), eq(quotes.userId, userId)))
     .limit(1);
-  if (!row?.client?.email || row.quote.status !== "enviado" || !(await reserveClientEmail(row.owner))) return false;
+  if (!row?.client?.email || row.quote.status !== "enviado" || row.quote.linkDisabledAt || !(await reserveClientEmail(row.owner))) {
+    return false;
+  }
   const { quote, client, owner } = row;
   const origin = await siteOrigin();
   const name = ownerName(owner);

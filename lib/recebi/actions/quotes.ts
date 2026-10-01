@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
@@ -221,7 +221,11 @@ export async function approveQuoteAsOwner(_: ActionState, formData: FormData): P
 }
 
 async function findPublicQuote(token: string) {
-  const [row] = await getDb().select().from(quotes).where(eq(quotes.publicToken, token)).limit(1);
+  const [row] = await getDb()
+    .select()
+    .from(quotes)
+    .where(and(eq(quotes.publicToken, token), isNull(quotes.linkDisabledAt)))
+    .limit(1);
   return row ?? null;
 }
 

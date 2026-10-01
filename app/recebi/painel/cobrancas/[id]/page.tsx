@@ -12,6 +12,7 @@ import { InvoiceDocument } from "@/components/recebi/document-view";
 import { NfsePanel } from "@/components/recebi/nfse-panel";
 import { RecurringDialog } from "@/components/recebi/recurring-dialog";
 import { invoiceDisplayStatus } from "@/components/recebi/invoice-status";
+import { LinkActions, LinkDisabledNotice } from "@/components/recebi/link-controls";
 import { ShareLink } from "@/components/recebi/share-link";
 import { DocumentTimeline } from "@/components/recebi/timeline";
 import {
@@ -94,7 +95,11 @@ export default async function InvoicePage({
             </section>
           ) : null}
 
-          {invoice.status === "enviada" || invoice.status === "paga" ? (
+          {invoice.status !== "rascunho" && invoice.linkDisabledAt ? (
+            <LinkDisabledNotice kind="cobranca" id={invoice.id} disabledAt={invoice.linkDisabledAt} />
+          ) : null}
+
+          {(invoice.status === "enviada" || invoice.status === "paga") && !invoice.linkDisabledAt ? (
             <ShareLink
               link={link}
               description="O cliente abre o link, vê os detalhes e paga com Pix. Não precisa de cadastro."
@@ -195,6 +200,7 @@ export default async function InvoicePage({
             <ActionButton action={duplicateInvoice} fields={{ id: invoice.id }} variant="outline" className="justify-start">
               <Copy /> Duplicar
             </ActionButton>
+            {invoice.status !== "rascunho" && !invoice.linkDisabledAt ? <LinkActions kind="cobranca" id={invoice.id} /> : null}
             {canRepeat ? (
               <RecurringDialog
                 clients={clientOptions.map((c) => ({ id: c.id, name: c.name }))}

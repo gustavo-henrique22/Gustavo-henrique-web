@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/recebi/action-button";
 import { ConfirmAction } from "@/components/recebi/confirm-action";
 import { QuoteDocument } from "@/components/recebi/document-view";
 import { quoteDisplayStatus } from "@/components/recebi/invoice-status";
+import { LinkActions, LinkDisabledNotice } from "@/components/recebi/link-controls";
 import { ShareLink } from "@/components/recebi/share-link";
 import { DocumentTimeline } from "@/components/recebi/timeline";
 import { approveQuoteAsOwner, deleteQuote, duplicateQuote, emailQuote, setQuoteStatus } from "@/lib/recebi/actions/quotes";
@@ -79,7 +80,11 @@ export default async function QuotePage({
             </section>
           ) : null}
 
-          {quote.status === "enviado" ? (
+          {quote.status !== "rascunho" && quote.linkDisabledAt ? (
+            <LinkDisabledNotice kind="orcamento" id={quote.id} disabledAt={quote.linkDisabledAt} />
+          ) : null}
+
+          {quote.status === "enviado" && !quote.linkDisabledAt ? (
             <ShareLink
               link={link}
               description="O cliente abre o link, confere a proposta e aprova com um clique. A cobrança com Pix é criada na hora."
@@ -166,6 +171,7 @@ export default async function QuotePage({
             <ActionButton action={duplicateQuote} fields={{ id: quote.id }} variant="outline" className="justify-start">
               <Copy /> Duplicar
             </ActionButton>
+            {quote.status !== "rascunho" && !quote.linkDisabledAt ? <LinkActions kind="orcamento" id={quote.id} /> : null}
             {quote.status === "enviado" ? (
               <ActionButton
                 action={setQuoteStatus}

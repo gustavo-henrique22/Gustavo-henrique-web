@@ -388,7 +388,7 @@ export async function getPublicInvoice(token: string) {
     .from(invoices)
     .innerJoin(users, eq(users.id, invoices.userId))
     .leftJoin(clients, eq(clients.id, invoices.clientId))
-    .where(and(eq(invoices.publicToken, token), ne(invoices.status, "rascunho")))
+    .where(and(eq(invoices.publicToken, token), ne(invoices.status, "rascunho"), isNull(invoices.linkDisabledAt)))
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, row.invoice.id)).orderBy(asc(invoiceItems.position));
@@ -460,7 +460,7 @@ export async function getPublicQuote(token: string) {
     .innerJoin(users, eq(users.id, quotes.userId))
     .leftJoin(clients, eq(clients.id, quotes.clientId))
     .leftJoin(invoices, eq(invoices.id, quotes.invoiceId))
-    .where(and(eq(quotes.publicToken, token), ne(quotes.status, "rascunho")))
+    .where(and(eq(quotes.publicToken, token), ne(quotes.status, "rascunho"), isNull(quotes.linkDisabledAt)))
     .limit(1);
   if (!row) return null;
   const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, row.quote.id)).orderBy(asc(quoteItems.position));
