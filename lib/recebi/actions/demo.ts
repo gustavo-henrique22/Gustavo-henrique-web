@@ -1,14 +1,14 @@
 "use server";
 
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { loginAttempts, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { createSession, destroySession, getCurrentUser } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
 import { createDemoAccount } from "../demo-seed";
-import { sqliteTimestamp } from "../rate-limit";
+import { sqliteTimestamp, takeRateLimit } from "../rate-limit";
 
 const DEMOS_PER_HOUR = 6;
 
@@ -24,13 +24,7 @@ export async function startDemo(): Promise<void> {
   // Limite simples por endereço de rede para evitar abuso.
   const h = await headers();
   const ip = h.get("cf-connecting-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  const key = `demo:${ip}`;
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.email, key), gte(loginAttempts.createdAt, sqliteTimestamp(Date.now() - 3_600_000))));
-  if (count >= DEMOS_PER_HOUR) redirect(`${BASE_PATH}?demo=limite`);
-  await db.insert(loginAttempts).values({ id: crypto.randomUUID(), email: key });
+  if (!(await takeRateLimit(`demo:${ip}`, DEMOS_PER_HOUR, 3_600_000))) redirect(`${BASE_PATH}?demo=limite`);
 
   const userId = await createDemoAccount();
   await createSession(userId);

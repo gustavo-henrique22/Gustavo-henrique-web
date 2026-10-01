@@ -23,6 +23,7 @@ import { billingEnabled } from "@/lib/recebi/billing";
 import { emailEnabled, readEnv } from "@/lib/recebi/email";
 import { encryptionEnabled } from "@/lib/recebi/encryption";
 import { externalCheckoutEnabled, unmatchedPayments } from "@/lib/recebi/external-billing";
+import { siteUrlConfigured } from "@/lib/recebi/origin";
 import { filesEnabled } from "@/lib/recebi/files";
 import { googleEnabled } from "@/lib/recebi/google";
 import { formatMoney } from "@/lib/recebi/money";
@@ -73,6 +74,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       name: "Venda pelo Mercado Pago (alternativa)",
       on: billingEnabled(),
       how: "MERCADOPAGO_ACCESS_TOKEN (e MERCADOPAGO_WEBHOOK_SECRET)",
+    },
+    {
+      name: "Endereço oficial do site",
+      on: siteUrlConfigured(),
+      how: "RECEBI_SITE_URL (ex.: https://seusite.com) — usado nos links dos e-mails; recomendado por segurança",
     },
     {
       name: "Criptografia dos dados sensíveis",

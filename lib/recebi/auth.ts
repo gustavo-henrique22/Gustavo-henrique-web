@@ -8,6 +8,7 @@ import { getDb } from "@/db";
 import { loginAttempts, passwordResets, sessions, users, type User } from "@/db/schema";
 import { APP_PATH, BASE_PATH, SESSION_COOKIE, SESSION_DAYS } from "./config";
 import { hashPassword, randomToken, sha256Hex, verifyPassword } from "./crypto";
+import { todayISO } from "./dates";
 import { requestMeta } from "./security";
 
 export { hashPassword, verifyPassword };
@@ -156,7 +157,7 @@ export async function requireAdmin(): Promise<User> {
 /** O plano Pro vale enquanto não passar da data de expiração (se houver). */
 export function hasPro(user: Pick<User, "plan" | "planExpiresAt">): boolean {
   if (user.plan !== "pro") return false;
-  return !user.planExpiresAt || user.planExpiresAt >= new Date().toISOString().slice(0, 10);
+  return !user.planExpiresAt || user.planExpiresAt >= todayISO();
 }
 
 /** Cria um link de redefinição de senha válido por 24 horas e devolve o token. */

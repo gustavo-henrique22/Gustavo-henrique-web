@@ -256,10 +256,13 @@ export async function rejectQuoteByClient(_: ActionState, formData: FormData): P
   const quote = await findPublicQuote(token);
   if (!quote || quote.status !== "enviado") return fail("Este orçamento não está aguardando resposta.");
 
-  await getDb()
+  // Só recusa se ainda estiver aguardando: não sobrescreve uma aprovação feita ao mesmo tempo.
+  const rejected = await getDb()
     .update(quotes)
     .set({ status: "recusado", decidedAt: new Date().toISOString(), decisionNote: note })
-    .where(eq(quotes.id, quote.id));
+    .where(and(eq(quotes.id, quote.id), eq(quotes.status, "enviado")))
+    .returning({ id: quotes.id });
+  if (rejected.length === 0) return fail("Este orçamento não está aguardando resposta.");
   await logEvent(quote.userId, "orcamento", quote.id, "recusado", note);
   await notify(quote.userId, {
     type: "recusado",

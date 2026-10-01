@@ -14,10 +14,10 @@ import { normalizeEmail } from "./auth";
 import { extendPro } from "./billing";
 import { APP_PATH } from "./config";
 import { addMonthsToDate, todayISO } from "./dates";
-import { readEnv } from "./email";
+import { emailEnabled, readEnv } from "./email";
 import { sendProActivatedEmail } from "./notifications";
 import { type ExternalEvent, type Provider } from "./payment-providers";
-import { grantReferralReward } from "./referral";
+import { grantReferralReward, revokeReferralReward } from "./referral";
 
 export function externalCheckoutEnabled(): boolean {
   return !!readEnv("RECEBI_CHECKOUT_MENSAL_URL") || !!readEnv("RECEBI_CHECKOUT_ANUAL_URL");
@@ -66,7 +66,10 @@ async function findUser(event: ExternalEvent) {
     .from(users)
     .where(eq(users.email, normalizeEmail(event.email)))
     .limit(1);
-  return byEmail && !byEmail.isDemo ? byEmail : null;
+  if (!byEmail || byEmail.isDemo) return null;
+  // Com e-mails ativos, só confiamos no e-mail da conta se ele foi confirmado (senão, o admin vincula).
+  if (emailEnabled() && !byEmail.emailVerifiedAt) return null;
+  return byEmail;
 }
 
 /** Libera o Pro de um pagamento aprovado para uma conta. */
@@ -154,6 +157,8 @@ export async function handleExternalEvent(event: ExternalEvent): Promise<HandleR
         href: `${APP_PATH}/plano`,
       });
     }
+    // Indicação: estorno do pagamento do convidado desfaz o mês de presente de quem convidou.
+    await revokeReferralReward(payment.userId);
     return "estornado";
   }
 

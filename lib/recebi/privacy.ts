@@ -1,5 +1,5 @@
 // LGPD: exportação de todos os dados de uma conta (direito de acesso e portabilidade, art. 18).
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   categoryRules,
@@ -68,7 +68,12 @@ export async function exportUserData(user: User) {
     db
       .select()
       .from(externalPayments)
-      .where(or(eq(externalPayments.userId, id), eq(externalPayments.email, user.email))),
+      .where(
+        // Avisos sem conta com o mesmo e-mail só entram se o e-mail da conta foi confirmado.
+        user.emailVerifiedAt
+          ? or(eq(externalPayments.userId, id), and(eq(externalPayments.email, user.email), isNull(externalPayments.userId)))
+          : eq(externalPayments.userId, id),
+      ),
     db.select().from(referralRewards).where(eq(referralRewards.referrerId, id)),
     db.select({ name: users.name, createdAt: users.createdAt }).from(users).where(eq(users.referredBy, id)),
     db.select().from(nfseSettings).where(eq(nfseSettings.userId, id)),

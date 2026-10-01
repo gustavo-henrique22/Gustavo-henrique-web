@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
-import { GOOGLE_ONLY_PASSWORD, isAdminEmail } from "@/lib/recebi/auth";
+import { notify } from "@/lib/recebi/activity";
+import { destroyAllSessions, GOOGLE_ONLY_PASSWORD, isAdminEmail } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { fetchGoogleProfile, GOOGLE_STATE_COOKIE, googleEnabled } from "@/lib/recebi/google";
 import { completeLogin } from "@/lib/recebi/login";
@@ -35,10 +36,26 @@ export async function GET(request: Request) {
     [user] = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
     if (user) {
       // O e-mail já tinha conta com senha: vinculamos o Google a ela (o Google confirmou o e-mail).
+      // Se o e-mail da conta nunca foi confirmado, quem criou a senha pode não ser o dono do e-mail:
+      // a senha antiga e as sessões abertas deixam de valer (a pessoa pode criar outra senha depois).
+      const unverified = !user.emailVerifiedAt;
       await db
         .update(users)
-        .set({ googleSub: profile.sub, emailVerifiedAt: user.emailVerifiedAt ?? new Date().toISOString() })
+        .set({
+          googleSub: profile.sub,
+          emailVerifiedAt: user.emailVerifiedAt ?? new Date().toISOString(),
+          ...(unverified ? { passwordHash: GOOGLE_ONLY_PASSWORD } : {}),
+        })
         .where(eq(users.id, user.id));
+      if (unverified) {
+        await destroyAllSessions(user.id);
+        await notify(user.id, {
+          type: "seguranca",
+          title: "Conta protegida: senha antiga desativada",
+          body: "Como o e-mail ainda não estava confirmado, desativamos a senha antiga. Crie uma nova em Configurações → Segurança, se quiser.",
+          href: `${APP_PATH}/configuracoes/seguranca#senha`,
+        });
+      }
     } else {
       const id = crypto.randomUUID();
       await db.insert(users).values({

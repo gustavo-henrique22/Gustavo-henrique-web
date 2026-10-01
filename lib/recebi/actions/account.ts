@@ -17,6 +17,7 @@ import {
   verifyPassword,
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
+import { sendEmailVerification } from "../email-verification";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
 import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
@@ -54,8 +55,11 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
       businessName: text(formData, "businessName", 120),
       document: text(formData, "document", 30),
       phone: text(formData, "phone", 40),
+      // Um e-mail novo precisa ser confirmado de novo.
+      ...(email !== user.email ? { emailVerifiedAt: null } : {}),
     })
     .where(eq(users.id, user.id));
+  if (email !== user.email) await sendEmailVerification({ ...user, name, email, emailVerifiedAt: null });
   refresh();
   return success("Perfil atualizado.");
 }

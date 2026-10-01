@@ -1,14 +1,16 @@
 // E-mails automáticos do Recebi. Todas as funções são silenciosas quando o
 // envio de e-mails não está configurado.
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clients, invoiceReminders, invoices, loginAttempts, quotes, users, type User } from "@/db/schema";
+import { clients, invoiceReminders, invoices, quotes, users, type User } from "@/db/schema";
 import { logEvent } from "./activity";
+import { hasPro } from "./auth";
 import { APP_PATH, BASE_PATH } from "./config";
 import { addDays, daysBetween, formatDate, todayISO } from "./dates";
 import { emailEnabled, emailLayout, escapeHtml, sendEmail } from "./email";
 import { formatMoney } from "./money";
 import { siteOrigin } from "./origin";
+import { takeRateLimit } from "./rate-limit";
 
 const pad = (n: number) => String(n).padStart(4, "0");
 const REMINDER_LABELS = {
@@ -20,17 +22,7 @@ const REMINDER_LABELS = {
 /** Limite diário de e-mails para clientes, por freelancer (evita uso do Recebi para spam). */
 async function reserveClientEmail(owner: Pick<User, "id" | "isDemo" | "plan" | "planExpiresAt">): Promise<boolean> {
   if (owner.isDemo) return false;
-  const db = getDb();
-  const key = `email:${owner.id}`;
-  const since = new Date(Date.now() - 86_400_000).toISOString().replace("T", " ").slice(0, 19);
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.email, key), gte(loginAttempts.createdAt, since)));
-  const pro = owner.plan === "pro" && (!owner.planExpiresAt || owner.planExpiresAt >= todayISO());
-  if (count >= (pro ? 60 : 15)) return false;
-  await db.insert(loginAttempts).values({ id: crypto.randomUUID(), email: key });
-  return true;
+  return takeRateLimit(`email:${owner.id}`, hasPro(owner) ? 60 : 15, 86_400_000);
 }
 const ownerName = (u: Pick<User, "name" | "businessName">) => u.businessName || u.name;
 

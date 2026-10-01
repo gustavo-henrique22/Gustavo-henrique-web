@@ -1,11 +1,11 @@
 // "Indique e ganhe": quem é convidado ganha 7 dias de Pro; quem convidou ganha 1 mês de Pro
 // quando o convidado assina (no máximo 12 meses por ano, para evitar abuso).
-import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { payments, referralRewards, users, type User } from "@/db/schema";
 import { notify } from "./activity";
 import { APP_PATH } from "./config";
-import { addDays, todayISO } from "./dates";
+import { addDays, addMonthsToDate, todayISO } from "./dates";
 import { sendReferralRewardEmail } from "./notifications";
 import { sqliteTimestamp } from "./rate-limit";
 
@@ -158,4 +158,29 @@ export async function referralStats(userId: string) {
     rewards: rewards.length,
     monthsEarned: rewards.reduce((sum, r) => sum + r.months, 0),
   };
+}
+
+/** Estorno do primeiro pagamento de um convidado: a recompensa de quem convidou é desfeita. */
+export async function revokeReferralReward(referredUserId: string): Promise<boolean> {
+  const db = getDb();
+  // Só desfaz se o convidado não tiver mais nenhum pagamento válido.
+  const valid = await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(and(eq(payments.userId, referredUserId), ne(payments.status, "estornado")))
+    .limit(1);
+  if (valid.length > 0) return false;
+  const removed = await db.delete(referralRewards).where(eq(referralRewards.referredId, referredUserId)).returning();
+  const reward = removed[0];
+  if (!reward) return false;
+  const [referrer] = await db.select().from(users).where(eq(users.id, reward.referrerId)).limit(1);
+  if (referrer?.plan === "pro" && referrer.planExpiresAt) {
+    const today = todayISO();
+    const reduced = addMonthsToDate(referrer.planExpiresAt, -reward.months);
+    await db
+      .update(users)
+      .set({ planExpiresAt: reduced > today ? reduced : today })
+      .where(eq(users.id, referrer.id));
+  }
+  return true;
 }

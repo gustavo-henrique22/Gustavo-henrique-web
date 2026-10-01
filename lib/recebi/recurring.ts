@@ -1,5 +1,5 @@
 // Cobranças recorrentes: todo mês o Recebi gera (e pode enviar) a cobrança sozinho.
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clients, recurringInvoices, users } from "@/db/schema";
 import { logEvent, notify } from "./activity";
@@ -17,7 +17,14 @@ import { sendInvoiceEmail } from "./notifications";
 export async function generateDueRecurring(options: { userId?: string; limit?: number } = {}): Promise<number> {
   const db = getDb();
   const today = todayISO();
-  const conditions = [eq(recurringInvoices.active, true), lte(recurringInvoices.nextDate, today)];
+  // Só contas Pro geram cobranças: filtramos no banco para que as recorrências de quem não é Pro
+  // (que nunca avançam) não ocupem o limite e travem as demais.
+  const conditions = [
+    eq(recurringInvoices.active, true),
+    lte(recurringInvoices.nextDate, today),
+    eq(users.plan, "pro"),
+    or(isNull(users.planExpiresAt), gte(users.planExpiresAt, today))!,
+  ];
   if (options.userId) conditions.push(eq(recurringInvoices.userId, options.userId));
   const due = await db
     .select({ rec: recurringInvoices, owner: users, clientName: clients.name })
