@@ -56,7 +56,7 @@ e o painel de administração mostra quais estão ativas.
 | --- | --- |
 | `RECEBI_ADMIN_EMAILS` | E-mails de administradores, separados por vírgula. Sem ela, a **primeira conta criada** vira administradora. |
 | `RECEBI_SITE_URL` | Endereço público do site (ex.: `https://meusite.com`), usado nos links dos e-mails. **Recomendado.** |
-| `RECEBI_ENCRYPTION_KEY` | Chave da criptografia dos dados sensíveis (mínimo 32 caracteres; gere com `openssl rand -base64 32`). **Guarde uma cópia:** sem ela, os dados criptografados não abrem. Para trocar, mova a atual para `RECEBI_ENCRYPTION_KEY_OLD` e cadastre uma nova. |
+| `RECEBI_ENCRYPTION_KEY` e `RECEBI_ENCRYPTION_KEY_OLD` | Chave da criptografia dos dados sensíveis (mínimo 32 caracteres; gere com `openssl rand -base64 32`). **Guarde uma cópia:** sem ela, os dados criptografados não abrem. Para trocar, mova a atual para `RECEBI_ENCRYPTION_KEY_OLD` e cadastre uma nova. |
 | `RECEBI_CHECKOUT_MENSAL_URL` e `RECEBI_CHECKOUT_ANUAL_URL` | Links de pagamento do Pro na Kiwify ou na Shopify. Com eles, os botões do plano levam para lá. |
 | `KIWIFY_WEBHOOK_TOKEN` | Token do webhook da Kiwify (valida as notificações). |
 | `SHOPIFY_WEBHOOK_SECRET` | Segredo de assinatura dos webhooks da Shopify. |
@@ -94,6 +94,41 @@ nos primeiros dias do mês, o resumo do mês anterior. Também atualiza as notas
 (5 no Grátis, 60 no Pro, 8 na demonstração) e o assistente só vê um resumo das finanças da própria conta.
 
 **Arquivos (comprovantes e logos):** usam o binding R2 `FILES` declarado em `.openai/hosting.json`.
+
+## Segurança
+
+O que já vem pronto no Recebi:
+
+- **Senhas** com PBKDF2 (100 mil iterações). Senhas comuns, sequências e senhas que já vazaram
+  (consulta ao Have I Been Pwned por k-anonimato: a senha nunca sai do servidor) são recusadas.
+- **Verificação em duas etapas** (app autenticador), com 10 códigos de recuperação guardados só como hash.
+- **Bloqueio de tentativas:** por e-mail e por conexão no login, no cadastro, em "esqueci a senha", nos
+  códigos de verificação e nas respostas dos links públicos.
+- **E-mail confirmado**, aviso de login em aparelho novo, lista de aparelhos conectados e histórico de atividade
+  (logins, trocas de senha, de e-mail e de chave Pix, 2FA, links públicos, nota fiscal).
+- **Criptografia AES-256-GCM** de CPF/CNPJ, chave Pix, telefones, observações, mensagens de pedidos, token da Focus NFe
+  e segredo do 2FA (`RECEBI_ENCRYPTION_KEY`). A tarefa diária criptografa dados antigos e troca de chave sozinha.
+- **Cabeçalhos de segurança** em todo `/recebi` (`proxy.ts`): CSP com nonce (scripts injetados não rodam), HSTS,
+  proteção contra o site ser aberto dentro de outro (clickjacking), `nosniff`, Referrer-Policy e Permissions-Policy.
+- **Proteção contra CSRF:** ações vindas de outros sites são bloqueadas (Origin/Sec-Fetch-Site + cookies SameSite).
+- **Arquivos:** o tipo é conferido pelo conteúdo (não pelo nome); SVG não é aceito; comprovantes são servidos isolados.
+- **Links públicos** de cobrança e orçamento podem ser desativados ou trocados a qualquer momento.
+- **Webhooks de pagamento** só valem com assinatura (Kiwify, Shopify e Mercado Pago).
+
+### Proteção extra na Cloudflare (WAF) — recomendado
+
+No painel da Cloudflare do seu domínio:
+
+1. **Security → WAF → Managed rules:** ligue o *Cloudflare Managed Ruleset* (no plano Free, o *Free Managed Ruleset*).
+2. **Security → WAF → Rate limiting rules:** crie uma regra para
+   `(http.request.uri.path contains "/recebi/entrar" or http.request.uri.path contains "/recebi/cadastro" or http.request.uri.path contains "/recebi/esqueci-senha" or http.request.uri.path contains "/recebi/verificar-acesso") and http.request.method eq "POST"`
+   com limite de **20 requisições por minuto por IP** e ação **Block** por 10 minutos.
+3. **Security → Bots:** ligue o *Bot Fight Mode*.
+4. **SSL/TLS:** modo **Full (strict)** e, em *Edge Certificates*, ligue *Always Use HTTPS* e TLS mínimo 1.2.
+5. **Não** crie regras de bloqueio para `/recebi/api/pagamentos/*`, `/recebi/api/mercadopago` e `/recebi/api/lembretes`:
+   são chamadas de outros servidores (pagamentos e tarefas diárias) e já exigem assinatura ou chave.
+
+Guarde uma cópia de `RECEBI_ENCRYPTION_KEY` em local seguro (gerenciador de senhas): sem ela, os dados criptografados não abrem.
 
 ## Rodando localmente
 
