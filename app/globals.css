@@ -2,13 +2,19 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+/* O Recebi escolhe o tema (claro/escuro/sistema) e marca o <html> com a classe "dark". */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root { --ink:#101c34; --paper:#f3f0e8; --paper-light:#fbfaf6; --lime:#c9ff3c; --orange:#ff6948; --line:rgba(16,28,52,.17); }
-* { box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased; }
-a { color:inherit; text-decoration:none; }
-button,a { -webkit-tap-highlight-color:transparent; }
-::selection { background:var(--lime); color:var(--ink); }
+/* Regras de elementos ficam na camada base para não sobrescrever as classes utilitárias do Tailwind. */
+@layer base {
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration:none; }
+  button,a { -webkit-tap-highlight-color:transparent; }
+  ::selection { background:var(--lime); color:var(--ink); }
+}
 
 .site-header { position:absolute; z-index:20; top:0; left:50%; display:flex; width:min(100% - 48px,1320px); height:90px; align-items:center; justify-content:space-between; transform:translateX(-50%); border-bottom:1px solid rgba(255,255,255,.18); color:white; }
 .wordmark { font-size:1.55rem; font-weight:900; letter-spacing:-.08em; }
@@ -18,7 +24,7 @@ button,a { -webkit-tap-highlight-color:transparent; }
 .site-header nav>a:not(.nav-cta):hover { color:var(--lime); }
 .nav-cta { display:inline-flex; min-height:44px; align-items:center; padding:12px 18px; border:1px solid rgba(255,255,255,.55); border-radius:999px; transition:background 180ms ease,color 180ms ease; }
 .nav-cta:hover { background:var(--lime); color:var(--ink); }
-a:focus-visible { outline:3px solid var(--orange); outline-offset:4px; }
+main:not(.recebi *) a:focus-visible { outline:3px solid var(--orange); outline-offset:4px; }
 
 .hero { position:relative; display:grid; min-height:820px; grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr); align-items:center; gap:60px; overflow:hidden; padding:150px max(24px,calc((100vw - 1320px)/2)) 100px; background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px),var(--ink); background-size:54px 54px; color:white; }
 .hero::before { position:absolute; inset:auto auto -240px -170px; width:520px; height:520px; border:1px solid rgba(201,255,60,.25); border-radius:50%; content:""; }
@@ -76,6 +82,14 @@ a:focus-visible { outline:3px solid var(--orange); outline-offset:4px; }
 .code-top { display:flex; height:38px; align-items:center; gap:6px; padding:0 13px; border-bottom:1px solid rgba(255,255,255,.16); background:#172746; }.code-top i { width:7px; height:7px; border-radius:50%; background:var(--orange); }.code-top i:nth-child(2) { background:var(--lime); }.code-top i:nth-child(3) { background:#fff; }.code-top span { margin-left:8px; color:rgba(255,255,255,.6); font-family:monospace; font-size:.64rem; }
 .code-lines { display:flex; min-height:230px; flex-direction:column; justify-content:center; gap:15px; padding:28px; font-family:monospace; font-size:clamp(.65rem,1.2vw,.9rem); }.code-lines span { color:#aab7cf; }.code-lines b { color:var(--lime); font-weight:400; }.code-lines em { color:var(--orange); font-style:normal; }
 
+.saas-visual { display:grid; place-items:center; padding:50px; background:var(--lime); }
+.saas-window { width:84%; padding:18px; border:2px solid var(--ink); border-radius:10px; background:var(--paper-light); box-shadow:17px 17px 0 var(--ink); transform:rotate(1.5deg); }
+.saas-top { display:flex; align-items:center; gap:8px; font-weight:900; letter-spacing:-.04em; }.saas-top b { display:grid; width:24px; height:24px; place-items:center; border-radius:7px; background:var(--lime); font-size:.8rem; }
+.saas-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }.saas-stats span { padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:white; font-size:clamp(.8rem,1.4vw,1.05rem); font-weight:900; }.saas-stats small { display:block; margin-bottom:3px; color:#687083; font-size:.58rem; font-weight:700; }
+.saas-stats .saas-dark { background:var(--ink); color:var(--lime); }.saas-stats .saas-dark small { color:rgba(255,255,255,.6); }
+.saas-bars { display:flex; height:90px; align-items:flex-end; gap:10px; margin-top:12px; padding:10px 12px 0; border:1px solid var(--line); border-radius:8px; background:white; }.saas-bars i { flex:1; border-radius:4px 4px 0 0; background:#1f9d55; }.saas-bars i:nth-child(even) { background:var(--orange); }
+.project-link { display:inline-flex; width:fit-content; align-items:center; gap:8px; margin-top:28px; padding:12px 16px; border-radius:4px; background:var(--ink); color:white; font-size:.8rem; font-weight:900; transition:transform 180ms ease,box-shadow 180ms ease; }.project-link:hover { transform:translateY(-2px); box-shadow:5px 5px 0 var(--lime); }
+
 .process-section { background:var(--paper-light); }
 .process-heading { margin-bottom:58px; }
 .process-grid { display:grid; grid-template-columns:repeat(4,1fr); margin:0; padding:0; border-top:1px solid var(--line); border-left:1px solid var(--line); list-style:none; }
@@ -95,7 +109,7 @@ a:focus-visible { outline:3px solid var(--orange); outline-offset:4px; }
 .about-section { padding-top:140px; padding-bottom:140px; }.about-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:100px; margin-top:60px; }.about-grid h2 { margin:0; font-size:clamp(3rem,5.5vw,5.8rem); letter-spacing:-.065em; line-height:.95; }.about-grid h2 em { color:var(--orange); }
 .about-copy>p { margin:0 0 22px; color:#5f697d; font-size:1.04rem; line-height:1.75; }.availability { margin-top:38px; padding-top:28px; border-top:1px solid var(--line); }.availability .status-dot { background:#55bd63; box-shadow:0 0 0 5px rgba(85,189,99,.12); }
 
-footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px; padding:70px max(24px,calc((100vw - 1220px)/2)) 35px; background:#0a1427; color:white; }.footer-mark { font-size:2.3rem; }footer p { margin:14px 0 0; color:rgba(255,255,255,.52); font-size:.86rem; }.footer-nav { display:flex; gap:30px; font-size:.75rem; font-weight:800; }.footer-nav a:hover { color:var(--lime); }footer small { grid-column:1/-1; padding-top:32px; border-top:1px solid rgba(255,255,255,.13); color:rgba(255,255,255,.37); font-size:.62rem; }
+body > main > footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px; padding:70px max(24px,calc((100vw - 1220px)/2)) 35px; background:#0a1427; color:white; }.footer-mark { font-size:2.3rem; }body > main > footer p { margin:14px 0 0; color:rgba(255,255,255,.52); font-size:.86rem; }.footer-nav { display:flex; gap:30px; font-size:.75rem; font-weight:800; }.footer-nav a:hover { color:var(--lime); }body > main > footer small { grid-column:1/-1; padding-top:32px; border-top:1px solid rgba(255,255,255,.13); color:rgba(255,255,255,.37); font-size:.62rem; }
 
 .reveal { opacity:0; animation:rise-in .75s cubic-bezier(.2,.8,.2,1) forwards; }.delay-1 { animation-delay:80ms; }.delay-2 { animation-delay:160ms; }.delay-3 { animation-delay:240ms; }.delay-4 { animation-delay:320ms; }
 @keyframes rise-in { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
@@ -110,10 +124,153 @@ footer { display:grid; grid-template-columns:1fr auto; align-items:end; gap:70px
   .site-header { width:calc(100% - 34px); height:76px; }.site-header nav { gap:16px; }.site-header nav>a:not(.nav-cta) { display:none; }.nav-cta { padding:10px 14px; }
   .hero { min-height:730px; padding:126px 20px 76px; align-items:start; }.hero h1 { margin-top:26px; font-size:clamp(3.4rem,16vw,5rem); }.eyebrow { font-size:.61rem; line-height:1.5; }.hero-intro { font-size:.96rem; }.hero-actions { align-items:flex-start; flex-direction:column; gap:12px; }.hero-mark { right:-170px; bottom:-70px; }
   .section { padding:86px 20px; }.section-heading,.compact-heading { grid-template-columns:1fr; gap:22px; margin-bottom:45px; }.section-heading>p:last-child { grid-column:1; }.section-heading h2,.compact-heading h2 { font-size:2.8rem; }
-  .project-visual { min-height:300px; }.landing-visual,.web-visual { padding:30px 20px; }.project-content { padding:34px 24px 40px; }.project-meta { align-items:flex-start; flex-direction:column; }.project-content h3 { margin-top:24px; font-size:2.35rem; }.browser-shell { width:88%; }
+  .project-visual { min-height:300px; }.landing-visual,.web-visual,.saas-visual { padding:30px 20px; }.project-content { padding:34px 24px 40px; }.project-meta { align-items:flex-start; flex-direction:column; }.project-content h3 { margin-top:24px; font-size:2.35rem; }.browser-shell { width:88%; }
   .process-grid { grid-template-columns:1fr; }.process-grid li { min-height:auto; }.process-grid h3 { margin-top:32px; }.process-cta { align-items:flex-start; flex-direction:column; padding:26px 22px; }
   .now-grid { grid-template-columns:1fr; }.now-grid aside { grid-column:auto; }.now-grid article,.now-grid aside { min-height:290px; padding:30px; }
-  .about-grid { grid-template-columns:1fr; gap:45px; margin-top:36px; }.about-grid h2 { font-size:3.4rem; }footer { grid-template-columns:1fr; gap:42px; }.footer-nav { flex-wrap:wrap; gap:18px 24px; }
+  .about-grid { grid-template-columns:1fr; gap:45px; margin-top:36px; }.about-grid h2 { font-size:3.4rem; }body > main > footer { grid-template-columns:1fr; gap:42px; }.footer-nav { flex-wrap:wrap; gap:18px 24px; }
 }
 
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; }.reveal { opacity:1; animation:none; }* { transition-duration:.01ms !important; } }
+
+/* ------------------------------------------------------------------
+   Recebi — controle financeiro para freelancers (/recebi)
+   Tokens do tema usados pelos componentes em components/ui. Ficam no
+   :root porque diálogos e menus são renderizados fora do wrapper .recebi.
+   O portfólio não usa nenhuma destas variáveis.
+------------------------------------------------------------------- */
+@theme inline {
+  --font-sans: var(--font-recebi), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-warning: var(--warning);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --brand: #c9ff3c;
+  --brand-ink: #101c34;
+  --background: #f6f5f0;
+  --foreground: #101c34;
+  --card: #ffffff;
+  --card-foreground: #101c34;
+  --popover: #ffffff;
+  --popover-foreground: #101c34;
+  --primary: #101c34;
+  --primary-foreground: #ffffff;
+  --secondary: #ecebe4;
+  --secondary-foreground: #101c34;
+  --muted: #eeede7;
+  --muted-foreground: #5c6679;
+  --accent: #ecebe4;
+  --accent-foreground: #101c34;
+  --destructive: #d23c26;
+  --border: #e2dfd6;
+  --input: #d6d3c9;
+  --ring: #6b7690;
+  --income: #15803d;
+  --expense: #d23c26;
+  --warning: #b45309;
+  --chart-1: #1f9d55;
+  --chart-2: #ff6948;
+  --chart-3: #101c34;
+  --chart-4: #8b95a9;
+  --chart-5: #c9a227;
+  --sidebar: #101c34;
+  --sidebar-foreground: #dfe4ee;
+  --sidebar-primary: #c9ff3c;
+  --sidebar-primary-foreground: #101c34;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #c9ff3c;
+}
+
+:root.dark:has(.recebi) {
+  color-scheme: dark;
+  --background: #0a1323;
+  --foreground: #eef1f6;
+  --card: #101c32;
+  --card-foreground: #eef1f6;
+  --popover: #121f37;
+  --popover-foreground: #eef1f6;
+  --primary: #c9ff3c;
+  --primary-foreground: #101c34;
+  --secondary: #1b2945;
+  --secondary-foreground: #eef1f6;
+  --muted: #172440;
+  --muted-foreground: #9aa6bd;
+  --accent: #1b2945;
+  --accent-foreground: #eef1f6;
+  --destructive: #ff6b52;
+  --border: #22314f;
+  --input: #2b3b5c;
+  --ring: #c9ff3c;
+  --income: #4ade80;
+  --expense: #ff7a5c;
+  --warning: #fbbf24;
+  --chart-1: #4ade80;
+  --chart-2: #ff7a5c;
+  --chart-3: #c9ff3c;
+  --chart-4: #7d89a3;
+  --chart-5: #e2b93b;
+  --sidebar: #070e1b;
+}
+
+body:has(.recebi) {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-recebi), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.recebi { min-height: 100dvh; background: var(--background); color: var(--foreground); }
+.recebi a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.recebi .tabular { font-variant-numeric: tabular-nums; }
+.recebi [data-sonner-toaster] { font-family: inherit; }
+.recebi ::selection { background: var(--brand); color: var(--brand-ink); }
+
+@media print {
+  :root:has(.recebi),
+  :root.dark:has(.recebi) {
+    color-scheme: light;
+    --background: #ffffff; --foreground: #101c34; --card: #ffffff; --card-foreground: #101c34;
+    --muted: #f2f1ec; --muted-foreground: #5c6679; --border: #e2dfd6; --primary: #101c34; --primary-foreground: #ffffff;
+  }
+  .recebi .no-print { display: none !important; }
+  .recebi .print-flat { box-shadow: none !important; border: 0 !important; }
+}

@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      // Comprovantes e logos do Recebi são enviados por server actions (até 5 MB).
+      bodySizeLimit: "6mb",
+    },
+  },
 };
 
 export default nextConfig;

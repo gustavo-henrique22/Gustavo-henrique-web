@@ -1,5 +1,48 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790641818063,
+      "tag": "0000_recebi",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790644936111,
+      "tag": "0001_recursos_premium",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790652292337,
+      "tag": "0002_ferramentas",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790846762126,
+      "tag": "0003_seguranca",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790849603986,
+      "tag": "0004_nota_fiscal",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790850659580,
+      "tag": "0005_dois_fatores",
+      "breakpoints": true
+    }
+  ]
 }

@@ -12,9 +12,11 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "db:migrate:local": "bash scripts/db-migrate-local.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
@@ -26,7 +28,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.31.0",
-    "next": "16.2.6",
+    "next": "16.3.8",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.6.7",
     "react": "19.2.6",
@@ -37,6 +39,7 @@
     "recharts": "^3.8.0",
     "sonner": "^2.0.8",
     "tailwind-merge": "3.6.0",
+    "uqr": "0.1.3",
     "vaul": "^1.1.2",
     "zod": "^3.25.76"
   },
@@ -60,5 +63,5 @@
     "wrangler": "4.92.0"
   },
   "type": "module",
-  "displayName": "Portf\u00f3lio de Gustavo Vilarim"
+  "displayName": "Portfólio de Gustavo Vilarim"
 }
