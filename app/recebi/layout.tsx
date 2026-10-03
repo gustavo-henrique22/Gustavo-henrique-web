@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/recebi/pwa";
 import { ThemeProvider } from "@/components/recebi/theme";
+import { scheduleDailyTasks } from "@/lib/recebi/daily-tasks";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-recebi", display: "swap" });
 
@@ -39,6 +40,8 @@ export const viewport: Viewport = {
 export default async function RecebiLayout({ children }: { children: React.ReactNode }) {
   // Nonce da política de segurança (proxy.ts): libera o script do tema, que roda antes da página aparecer.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // Tarefas automáticas do dia (recorrências, lembretes, resumo...): rodam depois da resposta, uma vez por dia.
+  scheduleDailyTasks();
   return (
     <ThemeProvider nonce={nonce}>
       <div className={`recebi ${manrope.variable} font-sans antialiased`}>

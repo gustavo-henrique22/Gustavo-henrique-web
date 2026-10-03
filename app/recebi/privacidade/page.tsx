@@ -48,7 +48,10 @@ export default function PrivacyPage() {
           <h2>1. Resumo</h2>
           <ul>
             <li>Usamos seus dados só para o Recebi funcionar. Não vendemos dados e não mostramos anúncios.</li>
-            <li>Senhas, CPF/CNPJ, chave Pix, telefones e outros dados sensíveis ficam protegidos com criptografia.</li>
+            <li>
+              Senhas, CPF/CNPJ, chave Pix, telefones, observações e mensagens de clientes ficam protegidos com criptografia no banco de
+              dados.
+            </li>
             <li>
               Você pode baixar todos os seus dados ou excluir sua conta quando quiser, em{" "}
               <Link href={`${APP_PATH}/configuracoes/privacidade`} className="font-semibold text-foreground underline">
@@ -85,7 +88,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">Seus clientes:</strong> quando um cliente abre um link, registramos que ele abriu. No
-              aceite de um orçamento, guardamos o nome digitado, a data, a hora e o IP como comprovante.
+              aceite de um orçamento, guardamos o nome digitado, a data, a hora e o IP como comprovante. Quem pede orçamento pela sua página
+              pública informa nome, e-mail, WhatsApp e uma mensagem.
             </li>
             <li>
               <strong className="text-foreground">Pagamento do Pro:</strong> recebemos da plataforma de pagamento o e-mail, o valor e a
@@ -139,7 +143,10 @@ export default function PrivacyPage() {
             <li>Enquanto sua conta existir. Ao excluir a conta, apagamos seus dados e arquivos na hora.</li>
             <li>As cópias de segurança automáticas do banco de dados se renovam em até 30 dias.</li>
             <li>O registro de atividades de segurança é guardado por até 1 ano.</li>
-            <li>Os registros de pagamento do plano Pro são guardados por 5 anos, por obrigação fiscal, sem os seus outros dados.</li>
+            <li>
+              Os avisos de pagamento do plano Pro enviados pela Kiwify ou pela Shopify (e-mail, valor e situação) ficam guardados por até 5
+              anos, por obrigação fiscal, mesmo depois de excluir a conta. As plataformas de pagamento guardam os próprios comprovantes.
+            </li>
             <li>Contas de demonstração são apagadas automaticamente em 24 horas.</li>
           </ul>
         </section>
@@ -148,10 +155,17 @@ export default function PrivacyPage() {
           <h2>8. Como protegemos</h2>
           <ul>
             <li>Conexão sempre criptografada (HTTPS).</li>
-            <li>Senhas com hash PBKDF2 e dados sensíveis com criptografia AES-256 no banco de dados.</li>
+            <li>
+              Senhas com hash PBKDF2 e dados sensíveis (CPF/CNPJ, chave Pix, telefones, observações, mensagens, token da nota fiscal e
+              segredo da verificação em duas etapas) com criptografia AES-256 no banco de dados.
+            </li>
+            <li>Senhas que já vazaram na internet não são aceitas.</li>
             <li>Verificação em duas etapas opcional, aviso de login em aparelho novo e lista de aparelhos conectados.</li>
             <li>Bloqueio após tentativas erradas de senha e limites contra robôs.</li>
             <li>Cada conta só acessa os próprios dados.</li>
+            <li>
+              Se acontecer um incidente de segurança que possa trazer risco a você, avisamos você e a ANPD, como manda a LGPD (art. 48).
+            </li>
           </ul>
         </section>
 
@@ -166,6 +180,9 @@ export default function PrivacyPage() {
             <li>Revogar consentimentos, como o resumo do mês por e-mail.</li>
             <li>Pedir informações sobre com quem compartilhamos seus dados (lista acima).</li>
           </ul>
+          <p className="mt-3">
+            O Recebi não toma decisões automáticas que afetem você: o assistente com IA só responde às suas perguntas e sugere textos.
+          </p>
         </section>
 
         <section>
@@ -181,7 +198,8 @@ export default function PrivacyPage() {
         <section>
           <h2>12. Fale com a gente</h2>
           <p>
-            Pedidos sobre seus dados ou dúvidas sobre privacidade:{" "}
+            O encarregado pelo tratamento de dados (art. 41 da LGPD) é Gustavo Henrique. Pedidos sobre seus dados ou dúvidas sobre
+            privacidade:{" "}
             <a
               href={whatsappLink("Olá! Tenho um pedido sobre meus dados no Recebi (LGPD).")}
               target="_blank"

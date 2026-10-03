@@ -31,6 +31,11 @@ import { logSecurityEvent, requestMeta } from "../security";
 import { startLoginChallenge, twoFactorEnabled } from "../two-factor";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Campo invisível dos formulários: só robôs preenchem. */
+function isBot(formData: FormData): boolean {
+  return !!text(formData, "website", 200);
+}
 const MAX_FAILURES = 8;
 const LOCK_MINUTES = 15;
 
@@ -39,6 +44,7 @@ function safeNext(value: string): string {
 }
 
 export async function signUp(_: ActionState, formData: FormData): Promise<ActionState> {
+  if (isBot(formData)) return fail("Não foi possível criar a conta. Tente de novo.");
   const name = text(formData, "name", 120);
   const email = normalizeEmail(text(formData, "email", 200));
   const password = String(formData.get("password") ?? "");
@@ -81,6 +87,7 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
 }
 
 export async function signIn(_: ActionState, formData: FormData): Promise<ActionState> {
+  if (isBot(formData)) return fail("E-mail ou senha incorretos.");
   const email = normalizeEmail(text(formData, "email", 200));
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return fail("Informe e-mail e senha.");
@@ -129,6 +136,8 @@ export async function signOut(): Promise<void> {
 }
 
 export async function requestPasswordReset(_: ActionState, formData: FormData): Promise<ActionState> {
+  // Robô: responde igual a um pedido normal, sem enviar nada.
+  if (isBot(formData)) return success("Se existir uma conta com este e-mail, enviamos um link para redefinir a senha.");
   const email = normalizeEmail(text(formData, "email", 200));
   if (!EMAIL_RE.test(email)) return fail("Informe um e-mail válido.");
   const { ip } = await requestMeta();

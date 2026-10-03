@@ -542,3 +542,13 @@ test("detects real file types by their first bytes", () => {
   assert.equal(fileTypes.sniffFileType(text("MZ\x90\0")), null); // executável renomeado
   assert.equal(fileTypes.extensionFor("image/png"), "png");
 });
+
+test("sends HTTP visitors to HTTPS, except on this computer", () => {
+  assert.equal(headers.httpsRedirectUrl("http://meusite.com/recebi/entrar?x=1", "http"), "https://meusite.com/recebi/entrar?x=1");
+  assert.equal(headers.httpsRedirectUrl("http://meusite.com:8080/recebi", "HTTP"), "https://meusite.com/recebi");
+  assert.equal(headers.httpsRedirectUrl("http://meusite.com/recebi", "https"), null);
+  // Sem o cabeçalho da Cloudflare não redireciona (evita loop num repasse interno por HTTP).
+  assert.equal(headers.httpsRedirectUrl("http://meusite.com/recebi", null), null);
+  assert.equal(headers.httpsRedirectUrl("http://localhost:5173/recebi", "http"), null);
+  assert.equal(headers.httpsRedirectUrl("http://127.0.0.1:4173/recebi", "http"), null);
+});

@@ -75,6 +75,20 @@ export function isCrossSiteRequest({
   return !!secFetchSite && secFetchSite !== "same-origin" && secFetchSite !== "none";
 }
 
+/**
+ * Endereço HTTPS para onde mandar quem chegou por HTTP (null se já é HTTPS, se não dá para saber, ou se é o
+ * computador local). O esquema vem do cabeçalho da Cloudflare (cf-visitor / x-forwarded-proto), não do endereço
+ * interno da requisição: assim um repasse interno por HTTP nunca vira redirecionamento em loop.
+ */
+export function httpsRedirectUrl(url: string, forwardedProto: string | null): string | null {
+  if (forwardedProto?.toLowerCase() !== "http") return null;
+  const parsed = new URL(url);
+  if (["localhost", "127.0.0.1", "[::1]", "0.0.0.0"].includes(parsed.hostname) || parsed.hostname.endsWith(".local")) return null;
+  parsed.protocol = "https:";
+  parsed.port = "";
+  return parsed.toString();
+}
+
 /** Nonce novo para cada resposta (128 bits, base64). */
 export function createNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));

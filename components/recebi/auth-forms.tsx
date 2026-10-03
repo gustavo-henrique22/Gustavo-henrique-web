@@ -20,10 +20,23 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
   );
 }
 
+/** Armadilha para robôs: um campo invisível para pessoas. Robôs que preenchem tudo são barrados no servidor. */
+function BotTrap() {
+  return (
+    <div aria-hidden className="absolute -left-[9999px] h-0 overflow-hidden">
+      <label>
+        Site
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+      </label>
+    </div>
+  );
+}
+
 export function SignInForm({ next }: { next?: string }) {
   const { state, pending, onSubmit } = useActionForm(signIn);
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
+      <BotTrap />
       <input type="hidden" name="next" value={next ?? ""} />
       <Field label={<Label htmlFor="email">E-mail</Label>}>
         <Input id="email" name="email" type="email" autoComplete="email" required placeholder="voce@email.com" />
@@ -55,6 +68,7 @@ export function SignUpForm({ referralCode }: { referralCode?: string }) {
   const { state, pending, onSubmit } = useActionForm(signUp);
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
+      <BotTrap />
       {referralCode ? <input type="hidden" name="ref" value={referralCode} /> : null}
       <Field label={<Label htmlFor="name">Seu nome</Label>}>
         <Input id="name" name="name" autoComplete="name" required placeholder="Ana Souza" />
@@ -103,6 +117,7 @@ export function ForgotPasswordForm({ whatsappHref }: { whatsappHref: string }) {
   }
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
+      <BotTrap />
       <Field label={<Label htmlFor="email">E-mail da conta</Label>}>
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>

@@ -64,7 +64,7 @@ e o painel de administração mostra quais estão ativas.
 | `MERCADOPAGO_ACCESS_TOKEN` | Venda automática do Pro (Pix, cartão e boleto) pelo Checkout Pro do Mercado Pago. |
 | `MERCADOPAGO_WEBHOOK_SECRET` | (Opcional) Valida a assinatura das notificações do Mercado Pago. |
 | `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` | Login com Google. No Google Cloud, cadastre o retorno `https://SEU-SITE/recebi/api/google/callback`. |
-| `RECEBI_CRON_SECRET` | Libera a rota diária de tarefas automáticas (veja abaixo). |
+| `RECEBI_CRON_SECRET` | (Opcional) Libera a rota de tarefas diárias para um agendador externo (veja abaixo). |
 | `ANTHROPIC_API_KEY` | Assistente e orçamentos com IA (Claude). Crie a chave em [console.anthropic.com](https://console.anthropic.com). |
 | `ANTHROPIC_BASE_URL` | (Opcional) Endereço alternativo da API, por exemplo o AI Gateway da Cloudflare. |
 
@@ -85,10 +85,13 @@ troque para produção. Os campos seguem os exemplos públicos da Focus NFe; con
 **Mercado Pago:** o endereço de notificação (`/recebi/api/mercadopago`) é enviado automaticamente em cada
 pagamento. O Pro também é liberado quando a pessoa volta do checkout, conferindo o pagamento na API.
 
-**Tarefas diárias:** chame uma vez por dia (por exemplo, com o [cron-job.org](https://cron-job.org))
-`https://SEU-SITE/recebi/api/lembretes?chave=VALOR_DE_RECEBI_CRON_SECRET`. Ela gera as cobranças recorrentes,
-envia os lembretes (3 dias antes, no dia e 3 dias depois do vencimento, para clientes de usuários Pro) e,
-nos primeiros dias do mês, o resumo do mês anterior. Também atualiza as notas fiscais em processamento. As recorrências também são geradas quando a pessoa abre o painel.
+**Tarefas diárias:** rodam sozinhas uma vez por dia, a partir das 7h (Brasília), na primeira visita ao Recebi,
+sem atrasar a página (`lib/recebi/daily-tasks.ts`). Elas geram as cobranças recorrentes, enviam os lembretes
+(3 dias antes, no dia e 3 dias depois do vencimento, para clientes de usuários Pro), mandam o resumo do mês
+anterior nos primeiros dias do mês, atualizam as notas fiscais em processamento, criptografam dados antigos e
+apagam avisos de pagamento com mais de 5 anos. Se quiser garantir o horário mesmo sem visitas, cadastre
+`RECEBI_CRON_SECRET` e chame `https://SEU-SITE/recebi/api/lembretes?chave=VALOR` uma vez por dia
+(por exemplo, com o [cron-job.org](https://cron-job.org)); o dia não roda duas vezes.
 
 **Assistente com IA:** usa o modelo `claude-opus-5-5`. Cada pessoa tem um limite diário de perguntas
 (5 no Grátis, 60 no Pro, 8 na demonstração) e o assistente só vê um resumo das finanças da própria conta.
@@ -115,9 +118,11 @@ O que já vem pronto no Recebi:
 - **Links públicos** de cobrança e orçamento podem ser desativados ou trocados a qualquer momento.
 - **Webhooks de pagamento** só valem com assinatura (Kiwify, Shopify e Mercado Pago).
 
-### Proteção extra na Cloudflare (WAF) — recomendado
+### Proteção extra na Cloudflare (WAF) — se você usar domínio próprio
 
-No painel da Cloudflare do seu domínio:
+O Recebi já força HTTPS (redireciona HTTP e envia HSTS) e tem armadilhas contra robôs nos formulários de cadastro,
+login, "esqueci a senha" e pedido de orçamento. Se o seu domínio passar pela sua conta da Cloudflare, ligue também,
+no painel da Cloudflare do domínio:
 
 1. **Security → WAF → Managed rules:** ligue o *Cloudflare Managed Ruleset* (no plano Free, o *Free Managed Ruleset*).
 2. **Security → WAF → Rate limiting rules:** crie uma regra para

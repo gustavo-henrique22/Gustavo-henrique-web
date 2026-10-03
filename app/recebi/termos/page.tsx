@@ -49,19 +49,53 @@ export default function TermsPage() {
               O pagamento é feito em uma plataforma parceira (como Kiwify ou Shopify), que segue as próprias regras de cobrança e reembolso.
               Use o mesmo e-mail da sua conta para o Pro ser liberado automaticamente.
             </li>
+            <li>
+              Você pode desistir da compra em até 7 dias e receber o valor de volta (direito de arrependimento, art. 49 do Código de Defesa
+              do Consumidor). Peça pela plataforma onde pagou ou fale com a gente.
+            </li>
             <li>Meses de Pro ganhos no “Indique e ganhe” não têm valor em dinheiro e podem ser cancelados em caso de fraude.</li>
             <li>Valores e limites podem mudar com aviso prévio de 30 dias.</li>
           </ul>
         </section>
         <section>
-          <h2>4. Estimativas</h2>
+          <h2>4. Estimativas e assistente com IA</h2>
+          <ul>
+            <li>
+              Valores como imposto estimado, sobra livre e uso do limite anual são aproximações para ajudar no planejamento e não substituem
+              a orientação de um contador.
+            </li>
+            <li>
+              As respostas do assistente com IA e as sugestões de orçamento podem conter erros. Confira antes de usar; elas não são
+              consultoria financeira, contábil ou jurídica.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>5. Orçamentos, cobranças e páginas públicas</h2>
+          <ul>
+            <li>
+              O que você oferece e cobra dos seus clientes é combinado entre você e eles. O Recebi não faz parte desse acordo e não garante
+              que o cliente vai pagar.
+            </li>
+            <li>
+              No aceite de um orçamento, o Recebi registra o nome digitado, a data, a hora e o IP como comprovante, que fica disponível para
+              você.
+            </li>
+            <li>Confira no seu banco se o Pix caiu antes de marcar uma cobrança como paga.</li>
+            <li>Você é responsável pelo conteúdo da sua página pública (serviços, preços, textos e logo).</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>6. Disponibilidade</h2>
           <p>
-            Valores como imposto estimado, sobra livre e uso do limite anual são aproximações para ajudar no planejamento e não substituem a
-            orientação de um contador.
+            Trabalhamos para o Recebi ficar no ar o tempo todo, com cópias de segurança automáticas, mas podem acontecer interrupções para
+            manutenção ou por falhas de fornecedores. Recomendamos baixar seus dados de vez em quando, em Configurações → Privacidade.
           </p>
         </section>
         <section>
-          <h2>5. Privacidade (LGPD)</h2>
+          <h2>7. Privacidade (LGPD)</h2>
           <p>
             Como coletamos, usamos, protegemos e apagamos seus dados está explicado na{" "}
             <Link href={`${BASE_PATH}/privacidade`} className="font-semibold text-foreground underline">
@@ -72,7 +106,23 @@ export default function TermsPage() {
           </p>
         </section>
         <section>
-          <h2>6. Contato</h2>
+          <h2>8. Mudanças nestes termos</h2>
+          <p>
+            Se mudarmos algo importante, avisamos por e-mail ou no painel com pelo menos 30 dias de antecedência. Continuar usando o Recebi
+            depois disso significa concordar com a nova versão; se não concordar, você pode excluir sua conta.
+          </p>
+        </section>
+
+        <section>
+          <h2>9. Lei aplicável</h2>
+          <p>
+            Estes termos seguem as leis brasileiras, incluindo o Código de Defesa do Consumidor e a LGPD. Eventuais disputas podem ser
+            levadas ao foro do seu domicílio.
+          </p>
+        </section>
+
+        <section>
+          <h2>10. Contato</h2>
           <p>
             Dúvidas ou pedidos sobre seus dados:{" "}
             <a

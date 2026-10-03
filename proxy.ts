@@ -1,9 +1,29 @@
-// Roda antes de cada página do Recebi: bloqueia requisições forjadas por outros sites (CSRF)
+// Roda antes de cada página do Recebi: leva HTTP para HTTPS, bloqueia requisições forjadas por outros sites (CSRF)
 // e aplica os cabeçalhos de segurança (CSP com nonce, HSTS, anti-clickjacking...).
 import { NextResponse, type NextRequest } from "next/server";
-import { createNonce, isCrossSiteRequest, securityHeaders } from "@/lib/recebi/security-headers";
+import { createNonce, httpsRedirectUrl, isCrossSiteRequest, securityHeaders } from "@/lib/recebi/security-headers";
+
+/** Esquema que o visitante usou ("http" ou "https"), segundo a Cloudflare. */
+function forwardedProto(request: NextRequest): string | null {
+  const visitor = request.headers.get("cf-visitor");
+  if (visitor) {
+    try {
+      const scheme = (JSON.parse(visitor) as { scheme?: string }).scheme;
+      if (scheme) return scheme;
+    } catch {
+      // Cabeçalho malformado: segue para o próximo.
+    }
+  }
+  return request.headers.get("x-forwarded-proto");
+}
 
 export function proxy(request: NextRequest) {
+  // Sempre HTTPS: quem chega por HTTP é levado para o mesmo endereço seguro.
+  if (request.method === "GET" || request.method === "HEAD") {
+    const secure = httpsRedirectUrl(request.url, forwardedProto(request));
+    if (secure) return NextResponse.redirect(secure, 308);
+  }
+
   const host = request.headers.get("host") ?? request.nextUrl.host;
   const crossSite = isCrossSiteRequest({
     method: request.method,
