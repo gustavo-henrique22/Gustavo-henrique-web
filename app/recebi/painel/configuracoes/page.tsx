@@ -135,6 +135,9 @@ export default async function SettingsPage() {
             <FormField id="annualLimit" label="Limite anual de faturamento" hint="MEI: R$ 81.000. Deixe vazio para não acompanhar.">
               <MoneyInput id="annualLimit" name="annualLimit" defaultCents={user.annualLimitCents || undefined} />
             </FormField>
+            <FormField id="das" label="Valor do DAS (MEI)" hint="Usado na previsão dos relatórios. Vazio: valor médio do MEI de serviços.">
+              <MoneyInput id="das" name="das" defaultCents={user.dasCents || undefined} />
+            </FormField>
           </div>
           <p className="text-xs text-muted-foreground">
             Se você é MEI e paga o DAS fixo, coloque 0% e lance o DAS como despesa na categoria &quot;Impostos (DAS, INSS)&quot;.

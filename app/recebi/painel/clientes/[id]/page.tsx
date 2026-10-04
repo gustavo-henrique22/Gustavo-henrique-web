@@ -1,15 +1,20 @@
-import { ArrowLeft, FileSignature, FileText, Mail, Phone } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileSignature, FileText, Lock, Mail, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/recebi/action-button";
+import { CopyButton } from "@/components/recebi/copy-button";
 import { InvoiceStatusBadge, QuoteStatusBadge } from "@/components/recebi/invoice-status";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { getDb } from "@/db";
 import { invoices, quotes, transactions } from "@/db/schema";
-import { requireUser } from "@/lib/recebi/auth";
+import { regeneratePortalLink } from "@/lib/recebi/actions/portal";
+import { hasPro, requireUser } from "@/lib/recebi/auth";
+import { siteOrigin } from "@/lib/recebi/origin";
+import { portalPath } from "@/lib/recebi/portal";
 import { APP_PATH } from "@/lib/recebi/config";
 import { getClient, listClients, listProjects } from "@/lib/recebi/data";
 import { formatDate, formatDateShort } from "@/lib/recebi/dates";
@@ -47,6 +52,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     listClients(user.id),
     listProjects(user.id),
   ]);
+  const pro = hasPro(user);
+  const portalUrl = client.portalToken ? `${await siteOrigin()}${portalPath(client.portalToken)}` : null;
   const projects = projectRows.filter((r) => r.project.clientId === id);
   const paid = history.filter((t) => t.type === "receita" && t.status === "pago").reduce((s, t) => s + t.amountCents, 0);
   const pending = history.filter((t) => t.type === "receita" && t.status === "pendente").reduce((s, t) => s + t.amountCents, 0);
@@ -116,6 +123,43 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <p className="mt-1 text-2xl font-extrabold tabular">{formatDate(client.createdAt.slice(0, 10))}</p>
         </div>
       </div>
+
+      <section aria-labelledby="portal" className="mb-6 rounded-2xl border bg-card p-5 shadow-xs">
+        <h2 id="portal" className="font-bold">
+          Portal do cliente
+        </h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Um link fixo onde {client.name} vê todas as cobranças, orçamentos e recibos, e paga pelo Pix.
+        </p>
+        {!pro ? (
+          <p className="flex items-center gap-2 text-sm">
+            <Lock className="size-4" aria-hidden /> Recurso do plano Pro.{" "}
+            <Link href={`${APP_PATH}/plano`} className="font-semibold underline">
+              Conhecer o Pro
+            </Link>
+          </p>
+        ) : portalUrl ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 text-xs">{portalUrl}</code>
+            <CopyButton value={portalUrl} />
+            <Button asChild variant="outline" size="sm">
+              <a href={portalUrl} target="_blank" rel="noreferrer">
+                <ExternalLink /> Abrir
+              </a>
+            </Button>
+            <ActionButton action={regeneratePortalLink} fields={{ clientId: client.id }} variant="outline" size="sm">
+              Trocar link
+            </ActionButton>
+            <ActionButton action={regeneratePortalLink} fields={{ clientId: client.id, off: "1" }} variant="ghost" size="sm">
+              Desativar
+            </ActionButton>
+          </div>
+        ) : (
+          <ActionButton action={regeneratePortalLink} fields={{ clientId: client.id }} size="sm">
+            Criar link do portal
+          </ActionButton>
+        )}
+      </section>
 
       {client.notes ? (
         <div className="mb-6 rounded-2xl border bg-card p-5 text-sm whitespace-pre-line shadow-xs">

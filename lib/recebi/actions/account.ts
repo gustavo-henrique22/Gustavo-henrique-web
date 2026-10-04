@@ -142,6 +142,9 @@ export async function updateFinanceSettings(_: ActionState, formData: FormData):
   const monthlyGoalCents = goalInput ? parseMoney(goalInput) : 0;
   const annualLimitCents = limitInput ? parseMoney(limitInput) : 0;
   const taxRate = taxInput ? Number(taxInput) : 0;
+  const dasInput = text(formData, "das", 30);
+  const dasCents = dasInput ? parseMoney(dasInput) : 0;
+  if (dasCents === null || dasCents < 0 || dasCents > 1_000_000) return fail("Valor do DAS inválido.");
 
   if (monthlyGoalCents === null || monthlyGoalCents < 0) return fail("Meta mensal inválida.");
   if (annualLimitCents === null || annualLimitCents < 0) return fail("Limite anual inválido.");
@@ -149,7 +152,7 @@ export async function updateFinanceSettings(_: ActionState, formData: FormData):
 
   await getDb()
     .update(users)
-    .set({ monthlyGoalCents, annualLimitCents, taxRateBp: Math.round(taxRate * 100) })
+    .set({ monthlyGoalCents, annualLimitCents, dasCents, taxRateBp: Math.round(taxRate * 100) })
     .where(eq(users.id, user.id));
   refresh();
   return success("Metas e impostos atualizados.");

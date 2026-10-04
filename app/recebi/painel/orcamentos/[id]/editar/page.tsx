@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { DocumentEditor } from "@/components/recebi/document-editor";
 import { PageHeader } from "@/components/recebi/page-header";
 import { aiEnabled } from "@/lib/recebi/ai";
-import { requireUser } from "@/lib/recebi/auth";
+import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { getQuote, listClients, listProjects } from "@/lib/recebi/data";
 
@@ -47,6 +47,7 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
           paymentTermDays: quote.paymentTermDays,
           discountCents: quote.discountCents,
           notes: quote.notes,
+          contract: { text: quote.contractText, pro: hasPro(user) },
           items: items.map((i) => ({ description: i.description, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
         }}
         ai={aiEnabled() && quote.status !== "aprovado" ? {} : null}
