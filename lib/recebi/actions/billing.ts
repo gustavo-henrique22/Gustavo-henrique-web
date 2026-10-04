@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { externalPayments } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
-import { normalizeEmail, requireUser } from "../auth";
+import { normalizeEmail, requireActor } from "../auth";
 import { billingEnabled, createCheckout, PRO_PLANS, type ProPlanKey } from "../billing";
 import { APP_PATH } from "../config";
 import { assignExternalPayment } from "../external-billing";
@@ -15,7 +15,7 @@ import { takeRateLimit } from "../rate-limit";
 
 /** Leva a pessoa para o pagamento do plano Pro no Mercado Pago. */
 export async function startCheckout(formData: FormData): Promise<void> {
-  const user = await requireUser();
+  const user = await requireActor();
   const plan = String(formData.get("plan") ?? "") as ProPlanKey;
   if (user.isDemo || !billingEnabled() || !(plan in PRO_PLANS)) redirect(`${APP_PATH}/plano`);
   const url = await createCheckout(user, plan, await siteOrigin());
@@ -24,7 +24,7 @@ export async function startCheckout(formData: FormData): Promise<void> {
 
 /** "Paguei com outro e-mail": a pessoa informa o número do pedido e o e-mail usado no pagamento. */
 export async function claimExternalPayment(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail("Crie sua conta para assinar o Pro.");
   const orderId = text(formData, "orderId", 120).replace(/^#/, "");
   const email = normalizeEmail(text(formData, "email", 200));

@@ -60,6 +60,14 @@ export const users = sqliteTable(
     totpRecoveryCodes: text("totp_recovery_codes").notNull().default(""),
     /** País do último login (cabeçalho da Cloudflare), para avisar sobre acesso de outro país. */
     lastLoginCountry: text("last_login_country").notNull().default(""),
+    /** Fim do teste grátis do Pro (contas novas). */
+    trialEndsAt: text("trial_ends_at"),
+    /** Valor mensal do DAS do MEI (centavos). 0 = usar o valor padrão do ano. */
+    dasCents: integer("das_cents").notNull().default(0),
+    /** Modelo de contrato que entra nos orçamentos novos. */
+    contractTemplate: text("contract_template").notNull().default(""),
+    /** Código de desconto escolhido para o pagamento do Pro (vai no link da Kiwify/Shopify). */
+    checkoutCoupon: text("checkout_coupon").notNull().default(""),
     createdAt: createdAt(),
   },
   (table) => [
@@ -85,6 +93,8 @@ export const sessions = sqliteTable(
     lastSeenAt: text("last_seen_at"),
     /** Última vez que a pessoa confirmou a identidade nesta sessão (para telas sensíveis). */
     reauthAt: text("reauth_at"),
+    /** Conta de outra pessoa em que um membro da equipe está trabalhando (null = a própria). */
+    workspaceId: text("workspace_id"),
     createdAt: createdAt(),
   },
   (table) => [index("sessions_user_idx").on(table.userId)],
@@ -124,9 +134,11 @@ export const clients = sqliteTable(
     document: text("document").notNull().default(""),
     notes: text("notes").notNull().default(""),
     archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    /** Código do portal do cliente (página com todas as cobranças e orçamentos dele). */
+    portalToken: text("portal_token"),
     createdAt: createdAt(),
   },
-  (table) => [index("clients_user_idx").on(table.userId)],
+  (table) => [index("clients_user_idx").on(table.userId), uniqueIndex("clients_portal_token_unique").on(table.portalToken)],
 );
 
 export const projects = sqliteTable(
@@ -266,6 +278,8 @@ export const quotes = sqliteTable(
     /** Aceite eletrônico: nome digitado pelo cliente e endereço de rede no momento da aprovação. */
     acceptedName: text("accepted_name"),
     acceptedIp: text("accepted_ip"),
+    /** Contrato que o cliente aceita junto com o orçamento (opcional). */
+    contractText: text("contract_text").notNull().default(""),
     /** Link público desativado pelo dono (o cliente vê "link indisponível"). */
     linkDisabledAt: text("link_disabled_at"),
     createdAt: createdAt(),
@@ -666,6 +680,63 @@ export const adminAudit = sqliteTable(
   (table) => [index("admin_audit_created_idx").on(table.createdAt)],
 );
 
+/** Equipe: pessoas convidadas para trabalhar na conta (plano Pro). */
+export const teamMembers = sqliteTable(
+  "team_members",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memberId: text("member_id").references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", { enum: ["editor", "leitura"] })
+      .notNull()
+      .default("editor"),
+    /** Hash do convite (some quando aceito). */
+    inviteHash: text("invite_hash"),
+    acceptedAt: text("accepted_at"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("team_members_owner_idx").on(table.ownerId),
+    index("team_members_member_idx").on(table.memberId),
+    uniqueIndex("team_members_owner_email_unique").on(table.ownerId, table.email),
+  ],
+);
+
+/** Cupons criados pelo administrador. */
+export const coupons = sqliteTable("coupons", {
+  id: text("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  /** "dias": dá dias de Pro na hora. "desconto": vai no link de pagamento (crie o mesmo cupom na Kiwify/Shopify). */
+  kind: text("kind", { enum: ["dias", "desconto"] }).notNull(),
+  days: integer("days").notNull().default(0),
+  description: text("description").notNull().default(""),
+  maxUses: integer("max_uses").notNull().default(0),
+  uses: integer("uses").notNull().default(0),
+  expiresAt: text("expires_at"),
+  /** Usado no e-mail "sentimos sua falta" para quem não renovou. */
+  winback: integer("winback", { mode: "boolean" }).notNull().default(false),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: createdAt(),
+});
+
+export const couponRedemptions = sqliteTable(
+  "coupon_redemptions",
+  {
+    id: text("id").primaryKey(),
+    couponId: text("coupon_id")
+      .notNull()
+      .references(() => coupons.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex("coupon_redemptions_unique").on(table.couponId, table.userId)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -686,3 +757,5 @@ export type NfseSettings = typeof nfseSettings.$inferSelect;
 export type NfseDocument = typeof nfseDocuments.$inferSelect;
 export type Passkey = typeof passkeys.$inferSelect;
 export type AdminAudit = typeof adminAudit.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type Coupon = typeof coupons.$inferSelect;

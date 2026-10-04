@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/db";
 import { sessions } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
-import { currentSessionId, requireUser } from "../auth";
+import { currentSessionId, requireActor } from "../auth";
 import { APP_PATH } from "../config";
 import { emailEnabled } from "../email";
 import { sendEmailVerification } from "../email-verification";
@@ -17,7 +17,7 @@ function refresh() {
 }
 
 export async function resendVerificationEmail(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.emailVerifiedAt) return success("Seu e-mail já está confirmado.");
   if (!emailEnabled()) return fail("O envio de e-mails ainda não está ativo neste site.");
   if (!(await takeRateLimit(`verify:${user.id}`, 3, 3_600_000))) return fail("Você já pediu alguns links. Tente de novo em uma hora.");
@@ -26,7 +26,7 @@ export async function resendVerificationEmail(): Promise<ActionState> {
 }
 
 export async function revokeSession(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const id = text(formData, "id", 128);
   if (id === (await currentSessionId())) return fail("Para sair deste aparelho, use o botão Sair.");
   const removed = await getDb()
@@ -40,7 +40,7 @@ export async function revokeSession(_: ActionState, formData: FormData): Promise
 }
 
 export async function revokeOtherSessions(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const current = (await currentSessionId()) ?? "";
   const removed = await getDb()
     .delete(sessions)

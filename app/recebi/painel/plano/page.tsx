@@ -8,7 +8,7 @@ import { FormField } from "@/components/recebi/fields";
 import { PageHeader } from "@/components/recebi/page-header";
 import { SubmitButton } from "@/components/recebi/submit-button";
 import { claimExternalPayment, startCheckout } from "@/lib/recebi/actions/billing";
-import { hasPro, requireUser } from "@/lib/recebi/auth";
+import { hasPro, requireActor } from "@/lib/recebi/auth";
 import { billingEnabled, processPayment } from "@/lib/recebi/billing";
 import { APP_PATH, FREE_LIMITS, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS, whatsappLink } from "@/lib/recebi/config";
 import { countActiveClients, countInvoicesInMonth, countQuotesInMonth, getUserById } from "@/lib/recebi/data";
@@ -46,7 +46,7 @@ function Cell({ value }: { value: string | boolean }) {
 }
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ pagamento?: string; payment_id?: string }> }) {
-  const user = await requireUser();
+  const user = await requireActor();
   const { pagamento, payment_id } = await searchParams;
 
   // Ao voltar do Mercado Pago, confere o pagamento na hora (o webhook também faz isso).

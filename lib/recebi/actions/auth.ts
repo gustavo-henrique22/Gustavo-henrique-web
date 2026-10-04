@@ -27,6 +27,7 @@ import { sendPasswordResetEmail, sendSecurityAlertEmail, sendWelcomeEmail } from
 import { siteOrigin } from "../origin";
 import { passwordProblem } from "../password-policy";
 import { takeRateLimit } from "../rate-limit";
+import { trialFields } from "../trial";
 import { applyReferral, REFERRAL_COOKIE } from "../referral";
 import { logSecurityEvent, requestMeta } from "../security";
 import { startLoginChallenge, twoFactorEnabled } from "../two-factor";
@@ -93,6 +94,8 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
     businessName,
     passwordHash: await hashPassword(password),
     isAdmin: await isAdminEmail(email),
+    // Teste grátis do Pro para toda conta nova.
+    ...trialFields(),
   });
   // Convite: código do formulário ou do cookie deixado pelo link /recebi/convite/<código>.
   const jar = await cookies();

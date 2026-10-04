@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { fail, text, type ActionState } from "../action-state";
 import { lockAccount } from "../account-lock";
-import { GOOGLE_ONLY_PASSWORD, requireUser, verifyPassword } from "../auth";
+import { GOOGLE_ONLY_PASSWORD, requireActor, verifyPassword } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
 import { takeRateLimit } from "../rate-limit";
 import { markRecentAuth } from "../reauth";
@@ -16,7 +16,7 @@ function safeNext(value: string): string {
 
 /** Tela "Confirme que é você": senha (se a conta tem) + código do app (se ativo). */
 export async function confirmIdentity(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (!(await takeRateLimit(`confirmar:${user.id}`, 10, 3_600_000))) return fail("Muitas tentativas. Tente de novo em uma hora.");
   const hasPassword = user.passwordHash !== GOOGLE_ONLY_PASSWORD;
   if (!hasPassword && !twoFactorEnabled(user)) {

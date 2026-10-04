@@ -8,7 +8,7 @@ import { Logo } from "@/components/recebi/logo";
 import { PrintButton } from "@/components/recebi/print-button";
 import { QuoteDecision } from "@/components/recebi/quote-decision";
 import { recordView } from "@/lib/recebi/activity";
-import { getCurrentUser, hasPro } from "@/lib/recebi/auth";
+import { getAccount, hasPro } from "@/lib/recebi/auth";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { getPublicQuote } from "@/lib/recebi/data";
 import { formatDate, todayISO } from "@/lib/recebi/dates";
@@ -29,7 +29,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const data = await getPublicQuote(token);
   if (!data) notFound();
   const { quote, items, client, owner, invoiceToken } = data;
-  await recordView("orcamento", quote, (await getCurrentUser())?.id ?? null, client?.name ?? null);
+  await recordView("orcamento", quote, (await getAccount())?.id ?? null, client?.name ?? null);
   const ownerName = owner.businessName || owner.name;
   const expired = quote.status === "enviado" && quote.validUntil < todayISO();
 

@@ -14,7 +14,7 @@ import {
   hasPro,
   hashPassword,
   normalizeEmail,
-  requireUser,
+  requireActor,
   verifyPassword,
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
@@ -56,7 +56,7 @@ async function confirmSensitiveChange(user: User, formData: FormData): Promise<s
 }
 
 export async function updateProfile(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const name = text(formData, "name", 120);
   const email = normalizeEmail(text(formData, "email", 200));
@@ -103,7 +103,7 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
 }
 
 export async function updatePaymentSettings(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const pixKey = text(formData, "pixKey", 100);
   const city = text(formData, "city", 60);
   if (pixKey && !city) return fail("Informe sua cidade. Ela é obrigatória no QR Code do Pix.");
@@ -134,7 +134,7 @@ export async function updatePaymentSettings(_: ActionState, formData: FormData):
 }
 
 export async function updateFinanceSettings(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const goalInput = text(formData, "monthlyGoal", 30);
   const limitInput = text(formData, "annualLimit", 30);
   const taxInput = text(formData, "taxRate", 10).replace("%", "").replace(",", ".");
@@ -156,7 +156,7 @@ export async function updateFinanceSettings(_: ActionState, formData: FormData):
 }
 
 export async function changePassword(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");
@@ -184,7 +184,7 @@ export async function changePassword(_: ActionState, formData: FormData): Promis
 }
 
 export async function deleteAccount(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const password = String(formData.get("password") ?? "");
   if (text(formData, "confirm", 20).toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
@@ -198,7 +198,7 @@ export async function deleteAccount(_: ActionState, formData: FormData): Promise
 }
 
 export async function uploadLogo(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   if (!hasPro(user)) return fail("A logo nas cobranças é um recurso do plano Pro.");
   const file = formData.get("logo");
@@ -213,7 +213,7 @@ export async function uploadLogo(_: ActionState, formData: FormData): Promise<Ac
 }
 
 export async function removeLogo(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   await getDb().update(users).set({ logoKey: null }).where(eq(users.id, user.id));
   await removeFile(user.logoKey);
   refresh();
@@ -221,7 +221,7 @@ export async function removeLogo(): Promise<ActionState> {
 }
 
 export async function updateReminders(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const enabled = text(formData, "autoReminders") === "on";
   await getDb().update(users).set({ autoReminders: enabled }).where(eq(users.id, user.id));
   refresh();
@@ -229,7 +229,7 @@ export async function updateReminders(_: ActionState, formData: FormData): Promi
 }
 
 export async function updateMonthlySummary(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const enabled = text(formData, "monthlySummary") === "on";
   await getDb().update(users).set({ monthlySummary: enabled }).where(eq(users.id, user.id));
   refresh();
@@ -237,7 +237,7 @@ export async function updateMonthlySummary(_: ActionState, formData: FormData): 
 }
 
 export async function updateHourlyRate(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const input = text(formData, "hourlyRate", 30);
   const cents = input ? parseMoney(input) : 0;
   if (cents === null || cents < 0 || cents > 10_000_000) return fail("Valor da hora inválido.");
@@ -247,7 +247,7 @@ export async function updateHourlyRate(_: ActionState, formData: FormData): Prom
 }
 
 export async function dismissOnboarding(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   await getDb().update(users).set({ onboardingDismissedAt: new Date().toISOString() }).where(eq(users.id, user.id));
   refresh();
   return success("Guia escondido. Você encontra tudo no menu.");

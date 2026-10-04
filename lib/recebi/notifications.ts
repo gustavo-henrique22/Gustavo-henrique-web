@@ -103,6 +103,24 @@ export async function sendTwoFactorEmail(user: Pick<User, "name" | "email" | "is
   });
 }
 
+/** Convite para trabalhar na conta de outra pessoa (plano Equipe). */
+export async function sendTeamInviteEmail(email: string, ownerName: string, role: string, link: string) {
+  if (!emailEnabled()) return false;
+  return sendEmail({
+    to: email,
+    subject: `${ownerName} convidou você para a equipe no Recebi`,
+    html: emailLayout({
+      preheader: `Acesso como ${role}.`,
+      title: "Você foi convidado para uma equipe",
+      paragraphs: [
+        `<strong>${escapeHtml(ownerName)}</strong> convidou você para trabalhar na conta dele(a) no Recebi, com acesso de <strong>${escapeHtml(role)}</strong>.`,
+        "Entre (ou crie sua conta grátis) com este mesmo e-mail e aceite o convite.",
+      ],
+      cta: { label: "Aceitar o convite", url: link },
+    }),
+  });
+}
+
 /**
  * Alerta de segurança genérico, com o botão "Não fui eu — bloquear minha conta" (quando houver link).
  * As linhas já devem vir escapadas.

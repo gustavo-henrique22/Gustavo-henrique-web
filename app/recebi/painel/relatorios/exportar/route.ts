@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clients, projects, transactions } from "@/db/schema";
-import { getCurrentUser } from "@/lib/recebi/auth";
+import { getAccount } from "@/lib/recebi/auth";
 import { currentMonth } from "@/lib/recebi/dates";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ function csvCell(value: string): string {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  const user = await getAccount();
   if (!user) return new Response("Faça login para exportar.", { status: 401 });
 
   const url = new URL(request.url);

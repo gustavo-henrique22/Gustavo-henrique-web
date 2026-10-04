@@ -35,6 +35,9 @@ export const SECURITY_EVENT_LABELS: Record<string, string> = {
   "passkey-removida": "Chave de acesso removida",
   "identidade-confirmada": "Identidade confirmada",
   "conta-bloqueada": "Conta bloqueada pelo link do e-mail",
+  "equipe-convite": "Convite para a equipe enviado",
+  "equipe-entrou": "Nova pessoa na equipe",
+  "equipe-removido": "Pessoa removida da equipe",
 };
 
 export async function requestMeta(): Promise<{ ip: string; userAgent: string; country: string }> {

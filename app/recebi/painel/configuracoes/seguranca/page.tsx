@@ -14,7 +14,7 @@ import { resendVerificationEmail, revokeOtherSessions, revokeSession } from "@/l
 import { APP_PATH } from "@/lib/recebi/config";
 import { listPasskeys } from "@/lib/recebi/passkeys";
 import { confirmPath, hasRecentAuth } from "@/lib/recebi/reauth";
-import { currentSessionId, GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
+import { currentSessionId, GOOGLE_ONLY_PASSWORD, requireActor } from "@/lib/recebi/auth";
 import { listSessions } from "@/lib/recebi/data";
 import { formatDateTime, formatRelative } from "@/lib/recebi/dates";
 import { emailEnabled } from "@/lib/recebi/email";
@@ -44,7 +44,7 @@ const ALERT_EVENTS = new Set([
 ]);
 
 export default async function SecuritySettingsPage({ searchParams }: { searchParams: Promise<{ admin?: string }> }) {
-  const user = await requireUser();
+  const user = await requireActor();
   const adminNeeds2fa = (await searchParams).admin === "1" && user.isAdmin;
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
   const [sessionRows, current, events, keys, recent] = await Promise.all([

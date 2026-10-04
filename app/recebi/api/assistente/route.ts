@@ -9,7 +9,7 @@ import {
   buildFinanceContext,
   takeAiQuota,
 } from "@/lib/recebi/ai";
-import { getCurrentUser } from "@/lib/recebi/auth";
+import { getAccount } from "@/lib/recebi/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,7 @@ function line(event: Record<string, string>) {
 export async function POST(request: Request) {
   // Só aceita JSON: formulários de outros sites não conseguem enviar este tipo sem permissão (CORS).
   if (!request.headers.get("content-type")?.includes("application/json")) return new Response("Tipo inválido", { status: 415 });
-  const user = await getCurrentUser();
+  const user = await getAccount();
   if (!user) return Response.json({ error: "Entre na sua conta para usar o assistente." }, { status: 401 });
   if (!aiEnabled()) return Response.json({ error: "O assistente ainda não foi ativado neste site." }, { status: 503 });
 

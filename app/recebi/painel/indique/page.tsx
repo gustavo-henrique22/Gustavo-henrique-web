@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/recebi/copy-button";
 import { PageHeader } from "@/components/recebi/page-header";
 import { StatCard } from "@/components/recebi/stat-card";
-import { requireUser } from "@/lib/recebi/auth";
+import { requireActor } from "@/lib/recebi/auth";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { formatDate } from "@/lib/recebi/dates";
 import { siteOrigin } from "@/lib/recebi/origin";
@@ -19,7 +19,7 @@ const STEPS = [
 ];
 
 export default async function ReferralPage() {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) {
     return (
       <>

@@ -7,14 +7,14 @@ import { ActionForm } from "@/components/recebi/action-form";
 import { FormField } from "@/components/recebi/fields";
 import { SettingsSection } from "@/components/recebi/settings-section";
 import { deleteAccount } from "@/lib/recebi/actions/account";
-import { GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
+import { GOOGLE_ONLY_PASSWORD, requireActor } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { confirmPath, hasRecentAuth } from "@/lib/recebi/reauth";
 
 export const metadata: Metadata = { title: "Privacidade" };
 
 export default async function PrivacySettingsPage() {
-  const user = await requireUser();
+  const user = await requireActor();
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
   const confirmed = await hasRecentAuth();
 

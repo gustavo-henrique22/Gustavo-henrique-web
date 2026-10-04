@@ -2,7 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { ConfirmIdentityForm } from "@/components/recebi/confirm-identity-form";
 import { PasskeyConfirmButton } from "@/components/recebi/passkey-buttons";
-import { GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
+import { GOOGLE_ONLY_PASSWORD, requireActor } from "@/lib/recebi/auth";
 import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
 import { googleEnabled } from "@/lib/recebi/google";
 import { listPasskeys } from "@/lib/recebi/passkeys";
@@ -11,7 +11,7 @@ import { REAUTH_MINUTES } from "@/lib/recebi/reauth";
 export const metadata: Metadata = { title: "Confirme que é você" };
 
 export default async function ConfirmIdentityPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const user = await requireUser();
+  const user = await requireActor();
   const requested = (await searchParams).next ?? "";
   const next = requested.startsWith(APP_PATH) && !requested.startsWith("//") ? requested : APP_PATH;
   const hasPassword = user.passwordHash !== GOOGLE_ONLY_PASSWORD;

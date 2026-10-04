@@ -19,7 +19,7 @@ import {
   updateReminders,
   uploadLogo,
 } from "@/lib/recebi/actions/account";
-import { GOOGLE_ONLY_PASSWORD, hasPro, requireUser } from "@/lib/recebi/auth";
+import { GOOGLE_ONLY_PASSWORD, hasPro, requireActor } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { emailEnabled } from "@/lib/recebi/email";
 import { filesEnabled, logoUrlFor } from "@/lib/recebi/files";
@@ -55,7 +55,7 @@ function SensitiveConfirmField({
 }
 
 export default async function SettingsPage() {
-  const user = await requireUser();
+  const user = await requireActor();
   const normalizedKey = normalizePixKey(user.pixKey);
   const logoUrl = logoUrlFor(user);
 
