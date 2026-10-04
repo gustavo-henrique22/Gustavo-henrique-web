@@ -4,8 +4,9 @@ import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
+import { users, type User } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
+import { lockLink } from "../account-lock";
 import {
   destroyOtherSessions,
   destroySession,
@@ -17,20 +18,42 @@ import {
   verifyPassword,
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
+import { escapeHtml } from "../email";
 import { sendEmailVerification } from "../email-verification";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
 import { passwordProblem } from "../password-policy";
 import { takeRateLimit } from "../rate-limit";
-import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
+import { hasRecentAuth } from "../reauth";
+import { sendAccountDeletedEmail, sendPasswordChangedEmail, sendSecurityAlertEmail } from "../notifications";
 import { logSecurityEvent } from "../security";
 import { sealUser } from "../sensitive";
+import { checkSecondFactor, twoFactorEnabled } from "../two-factor";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
 }
 
 const DEMO_BLOCKED = "Na demonstração não dá para mudar isso. Crie sua conta grátis para usar de verdade.";
+
+/**
+ * Trocar o e-mail ou a chave Pix é o que um invasor faria primeiro (desviar pagamentos ou tomar a conta).
+ * Exige o código do app (se a verificação em duas etapas está ativa), senão a senha atual, senão identidade
+ * confirmada há pouco (contas só com Google). Devolve a mensagem de erro, ou null se pode seguir.
+ */
+async function confirmSensitiveChange(user: User, formData: FormData): Promise<string | null> {
+  if (!(await takeRateLimit(`troca-sensivel:${user.id}`, 10, 3_600_000))) return "Muitas tentativas. Tente de novo em uma hora.";
+  if (twoFactorEnabled(user)) {
+    if (await checkSecondFactor(user, text(formData, "confirmCode", 20))) return null;
+    await logSecurityEvent(user.id, "login-2fa-falhou", "Troca de e-mail ou chave Pix");
+    return "Para trocar o e-mail ou a chave Pix, digite o código atual do app autenticador.";
+  }
+  if (user.passwordHash !== GOOGLE_ONLY_PASSWORD) {
+    if (await verifyPassword(String(formData.get("confirmPassword") ?? ""), user.passwordHash)) return null;
+    return "Para trocar o e-mail ou a chave Pix, digite sua senha atual.";
+  }
+  return (await hasRecentAuth()) ? null : "Para trocar o e-mail ou a chave Pix, confirme sua identidade entrando de novo com o Google.";
+}
 
 export async function updateProfile(_: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
@@ -42,6 +65,8 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
 
   const db = getDb();
   if (email !== user.email) {
+    const blocked = await confirmSensitiveChange(user, formData);
+    if (blocked) return fail(blocked);
     const [taken] = await db
       .select({ id: users.id })
       .from(users)
@@ -65,6 +90,13 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
   if (email !== user.email) {
     await logSecurityEvent(user.id, "email-alterado", `${user.email} → ${email}`);
     await sendEmailVerification({ ...user, name, email, emailVerifiedAt: null });
+    // Aviso para o e-mail ANTIGO, com o botão de bloquear a conta.
+    await sendSecurityAlertEmail(user, {
+      subject: "O e-mail da sua conta do Recebi foi trocado",
+      title: "E-mail da conta trocado",
+      lines: [`O e-mail da sua conta foi trocado para <strong>${escapeHtml(email)}</strong>.`],
+      lockUrl: await lockLink(user.id),
+    });
   }
   refresh();
   return success("Perfil atualizado.");
@@ -75,12 +107,28 @@ export async function updatePaymentSettings(_: ActionState, formData: FormData):
   const pixKey = text(formData, "pixKey", 100);
   const city = text(formData, "city", 60);
   if (pixKey && !city) return fail("Informe sua cidade. Ela é obrigatória no QR Code do Pix.");
+  const pixChanged = pixKey !== user.pixKey;
+  if (pixChanged && user.pixKey) {
+    if (user.isDemo) return fail(DEMO_BLOCKED);
+    const blocked = await confirmSensitiveChange(user, formData);
+    if (blocked) return fail(blocked);
+  }
   await getDb()
     .update(users)
     .set({ ...(await sealUser(user.id, { pixKey })), city })
     .where(eq(users.id, user.id));
   // Trocar a chave Pix desvia os pagamentos: fica registrado na atividade de segurança.
-  if (pixKey !== user.pixKey) await logSecurityEvent(user.id, "chave-pix-alterada");
+  if (pixChanged) {
+    await logSecurityEvent(user.id, "chave-pix-alterada");
+    if (user.pixKey) {
+      await sendSecurityAlertEmail(user, {
+        subject: "A chave Pix da sua conta do Recebi foi trocada",
+        title: "Chave Pix trocada",
+        lines: ["A chave Pix que aparece nas suas cobranças foi trocada. Os próximos pagamentos vão para a chave nova."],
+        lockUrl: await lockLink(user.id),
+      });
+    }
+  }
   refresh();
   return success("Dados de recebimento salvos.");
 }

@@ -69,6 +69,8 @@ export async function createSession(userId: string): Promise<{ deviceHash: strin
     userAgent,
     ip,
     lastSeenAt: now,
+    // Acabou de entrar: conta como identidade confirmada para as telas sensíveis.
+    reauthAt: now,
   });
   // Limpeza oportunista de sessões vencidas e de contadores antigos (tentativas, limites).
   await db.delete(sessions).where(lt(sessions.expiresAt, now));

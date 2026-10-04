@@ -16,9 +16,11 @@ import { payments, users } from "@/db/schema";
 import { adminAssignPayment, setUserPlan } from "@/lib/recebi/actions/admin";
 import { businessMetrics } from "@/lib/recebi/admin-metrics";
 import { aiEnabled } from "@/lib/recebi/ai";
-import { hasPro, requireAdmin } from "@/lib/recebi/auth";
+import { ADMIN_ACTION_LABELS, listAdminAudit, requireAdminPage } from "@/lib/recebi/admin-guard";
+import { hasPro } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
-import { formatDate } from "@/lib/recebi/dates";
+import { BACKUP_DAYS, backupsEnabled, listBackups } from "@/lib/recebi/backup";
+import { formatDate, formatDateTime } from "@/lib/recebi/dates";
 import { billingEnabled } from "@/lib/recebi/billing";
 import { emailEnabled, readEnv } from "@/lib/recebi/email";
 import { encryptionEnabled } from "@/lib/recebi/encryption";
@@ -31,12 +33,13 @@ import { formatMoney } from "@/lib/recebi/money";
 export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireAdmin();
+  // Admin: verificação em duas etapas obrigatória e identidade confirmada há poucos minutos.
+  await requireAdminPage(`${APP_PATH}/admin`);
   const q = (await searchParams).q?.trim().slice(0, 100) ?? "";
   const db = getDb();
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, recentPayments, metrics, unmatched] = await Promise.all([
+  const [list, recentPayments, metrics, unmatched, audit, backups] = await Promise.all([
     db
       .select()
       .from(users)
@@ -51,6 +54,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       .limit(10),
     businessMetrics(),
     unmatchedPayments(),
+    listAdminAudit(30),
+    listBackups(),
   ]);
 
   const integrations = [
@@ -347,6 +352,58 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </tbody>
         </table>
         {list.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p> : null}
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Registro do administrador</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Tudo o que foi feito por aqui: quem, o quê, para quem e quando.</p>
+          {audit.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>
+          ) : (
+            <ol className="mt-4 grid gap-2 text-sm">
+              {audit.map((entry) => (
+                <li key={entry.id} className="grid gap-0.5 rounded-lg bg-muted/40 px-3 py-2">
+                  <span className="font-medium">
+                    {ADMIN_ACTION_LABELS[entry.action] ?? entry.action}
+                    {entry.targetEmail ? ` · ${entry.targetEmail}` : ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+                    {formatDateTime(entry.createdAt)} · por {entry.adminEmail}
+                    {entry.detail ? ` · ${entry.detail}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Cópias de segurança</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Uma cópia criptografada do banco por dia, guardada por {BACKUP_DAYS} dias. O README explica como restaurar.
+          </p>
+          {!backupsEnabled() ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Desligadas: precisam do armazenamento de arquivos (R2) e de <code>RECEBI_ENCRYPTION_KEY</code>.
+            </p>
+          ) : backups.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">A primeira cópia é feita nas tarefas automáticas do dia.</p>
+          ) : (
+            <ul className="mt-4 grid gap-2 text-sm">
+              {backups.map((backup) => (
+                <li key={backup.key} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                  <span className="tabular">
+                    {formatDate(backup.date)} · {(backup.size / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB
+                  </span>
+                  <a href={`${APP_PATH}/admin/backup/${backup.date}`} className="font-semibold underline underline-offset-2">
+                    Baixar (criptografada)
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </>
   );

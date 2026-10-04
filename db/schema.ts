@@ -58,6 +58,8 @@ export const users = sqliteTable(
     totpSecret: text("totp_secret"),
     totpEnabledAt: text("totp_enabled_at"),
     totpRecoveryCodes: text("totp_recovery_codes").notNull().default(""),
+    /** País do último login (cabeçalho da Cloudflare), para avisar sobre acesso de outro país. */
+    lastLoginCountry: text("last_login_country").notNull().default(""),
     createdAt: createdAt(),
   },
   (table) => [
@@ -81,6 +83,8 @@ export const sessions = sqliteTable(
     userAgent: text("user_agent").notNull().default(""),
     ip: text("ip").notNull().default(""),
     lastSeenAt: text("last_seen_at"),
+    /** Última vez que a pessoa confirmou a identidade nesta sessão (para telas sensíveis). */
+    reauthAt: text("reauth_at"),
     createdAt: createdAt(),
   },
   (table) => [index("sessions_user_idx").on(table.userId)],
@@ -617,6 +621,51 @@ export const nfseDocuments = sqliteTable(
   ],
 );
 
+/** Chaves de acesso (passkeys): login com digital, rosto ou PIN do aparelho. */
+export const passkeys = sqliteTable(
+  "passkeys",
+  {
+    /** Id da credencial (base64url). */
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transports: text("transports").notNull().default(""),
+    name: text("name").notNull().default(""),
+    lastUsedAt: text("last_used_at"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("passkeys_user_idx").on(table.userId)],
+);
+
+/** Desafios de passkey (cadastro e login), válidos por 5 minutos. O id é o hash do token do cookie. */
+export const passkeyChallenges = sqliteTable("passkey_challenges", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  purpose: text("purpose").notNull(),
+  challenge: text("challenge").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: createdAt(),
+});
+
+/** Registro do que os administradores fizeram (dar Pro, vincular pagamento...). */
+export const adminAudit = sqliteTable(
+  "admin_audit",
+  {
+    id: text("id").primaryKey(),
+    adminId: text("admin_id").references(() => users.id, { onDelete: "set null" }),
+    adminEmail: text("admin_email").notNull(),
+    action: text("action").notNull(),
+    targetEmail: text("target_email").notNull().default(""),
+    detail: text("detail").notNull().default(""),
+    ip: text("ip").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (table) => [index("admin_audit_created_idx").on(table.createdAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -635,3 +684,5 @@ export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type ExternalPayment = typeof externalPayments.$inferSelect;
 export type NfseSettings = typeof nfseSettings.$inferSelect;
 export type NfseDocument = typeof nfseDocuments.$inferSelect;
+export type Passkey = typeof passkeys.$inferSelect;
+export type AdminAudit = typeof adminAudit.$inferSelect;

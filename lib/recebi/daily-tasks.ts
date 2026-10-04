@@ -1,10 +1,11 @@
-// Tarefas automáticas do dia: cobranças recorrentes, lembretes, resumo do mês, notas fiscais pendentes e
-// criptografia de dados antigos. Rodam sozinhas uma vez por dia, a partir das 7h (Brasília), na primeira visita
+// Tarefas automáticas do dia: cobranças recorrentes, lembretes, resumo do mês, notas fiscais pendentes,
+// criptografia de dados antigos, limpeza e cópia de segurança do banco. Rodam sozinhas uma vez por dia, a partir das 7h (Brasília), na primeira visita
 // ao Recebi — sem precisar de agendador externo. A rota /recebi/api/lembretes continua disponível como reforço.
 import * as workers from "cloudflare:workers";
 import { lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { externalPayments, loginAttempts } from "@/db/schema";
+import { createBackup } from "./backup";
 import { todayISO } from "./dates";
 import { reencryptPending } from "./encryption-jobs";
 import { refreshPendingNfse } from "./nfse";
@@ -32,7 +33,8 @@ export async function runDailyTasks() {
   const nfse = await step("notas", () => refreshPendingNfse(), 0);
   const encrypted = await step("criptografia", () => reencryptPending(), 0);
   const removed = await step("limpeza", () => removeExpiredRecords(), 0);
-  return { recurring, ...reminders, summaries, nfse, encrypted, removed };
+  const backup = await step("backup", () => createBackup(), null);
+  return { recurring, ...reminders, summaries, nfse, encrypted, removed, backup: backup?.key ?? null };
 }
 
 /** Prazo da política de privacidade: avisos de pagamento ficam no máximo 5 anos. */

@@ -105,6 +105,16 @@ O que já vem pronto no Recebi:
 - **Senhas** com PBKDF2 (100 mil iterações). Senhas comuns, sequências e senhas que já vazaram
   (consulta ao Have I Been Pwned por k-anonimato: a senha nunca sai do servidor) são recusadas.
 - **Verificação em duas etapas** (app autenticador), com 10 códigos de recuperação guardados só como hash.
+- **Chaves de acesso (passkeys):** entrar com digital, rosto ou PIN do aparelho, sem senha (WebAuthn).
+- **Confirme que é você:** admin, chaves de acesso e "baixar meus dados" pedem a identidade de novo (senha, código ou
+  chave) se a última confirmação tiver mais de 10 minutos. Trocar e-mail ou chave Pix pede o código do app (ou a senha).
+- **Alertas de atividade suspeita:** muitas senhas erradas, aparelho novo ou login de outro país geram aviso no painel e
+  por e-mail, com o botão "Não fui eu — bloquear minha conta" (derruba todas as sessões, invalida a senha e as chaves).
+- **Administração protegida:** só entra quem tem verificação em duas etapas ou chave de acesso; tudo o que o admin faz
+  fica registrado (dar Pro, vincular pagamento, link de senha, baixar cópia).
+- **Cópia de segurança diária** do banco, criptografada, guardada no R2 por 7 dias (veja "Restaurar uma cópia" abaixo).
+- **Testes de ataque no CI:** a cada mudança, o GitHub sobe o site e testa cabeçalhos, CSRF, páginas sem login,
+  injeção em links públicos, webhooks sem assinatura e o redirecionamento para HTTPS (`tests/recebi-attack.test.mjs`).
 - **Bloqueio de tentativas:** por e-mail e por conexão no login, no cadastro, em "esqueci a senha", nos
   códigos de verificação e nas respostas dos links públicos.
 - **E-mail confirmado**, aviso de login em aparelho novo, lista de aparelhos conectados e histórico de atividade
@@ -132,6 +142,14 @@ no painel da Cloudflare do domínio:
 4. **SSL/TLS:** modo **Full (strict)** e, em *Edge Certificates*, ligue *Always Use HTTPS* e TLS mínimo 1.2.
 5. **Não** crie regras de bloqueio para `/recebi/api/pagamentos/*`, `/recebi/api/mercadopago` e `/recebi/api/lembretes`:
    são chamadas de outros servidores (pagamentos e tarefas diárias) e já exigem assinatura ou chave.
+
+### Restaurar uma cópia de segurança
+
+1. No painel de administração, em **Cópias de segurança**, baixe o arquivo do dia (`recebi-backup-AAAA-MM-DD.json.enc`).
+2. Gere o SQL com a mesma chave do site:
+   `RECEBI_ENCRYPTION_KEY='...' node scripts/restaurar-backup.mjs recebi-backup-AAAA-MM-DD.json.enc > restaurar.sql`
+3. Confira e aplique no D1: `npx wrangler d1 execute NOME_DO_BANCO --remote --file restaurar.sql`
+   (substitui os dados das tabelas da cópia). Apague `restaurar.sql` depois: ele tem os dados abertos.
 
 Guarde uma cópia de `RECEBI_ENCRYPTION_KEY` em local seguro (gerenciador de senhas): sem ela, os dados criptografados não abrem.
 

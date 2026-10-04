@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SignInForm } from "@/components/recebi/auth-forms";
 import { FormError } from "@/components/recebi/form-error";
 import { GoogleButton } from "@/components/recebi/google-button";
+import { PasskeyLoginButton } from "@/components/recebi/passkey-buttons";
 import { startDemo } from "@/lib/recebi/actions/demo";
 import { BASE_PATH } from "@/lib/recebi/config";
 
@@ -20,6 +21,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <FormError message="Não foi possível entrar com o Google. Tente de novo." />
         </div>
       ) : null}
+      <div className="mb-3">
+        <PasskeyLoginButton next={next} />
+      </div>
       <GoogleButton />
       <SignInForm next={next} />
       <p className="mt-6 text-center text-sm text-muted-foreground">

@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/recebi/auth";
 import { todayISO } from "@/lib/recebi/dates";
 import { exportUserData } from "@/lib/recebi/privacy";
 import { takeRateLimit } from "@/lib/recebi/rate-limit";
+import { hasRecentAuth } from "@/lib/recebi/reauth";
 import { logSecurityEvent } from "@/lib/recebi/security";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new Response("Entre na sua conta para baixar seus dados.", { status: 401 });
+  // Todos os dados da conta: só com identidade confirmada há poucos minutos.
+  if (!(await hasRecentAuth())) return new Response("Confirme sua identidade antes de baixar seus dados.", { status: 403 });
   if (!(await takeRateLimit(`export:${user.id}`, 10, 86_400_000))) {
     return new Response("Você já baixou seus dados várias vezes hoje. Tente amanhã.", { status: 429 });
   }

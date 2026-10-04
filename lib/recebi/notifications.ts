@@ -103,21 +103,28 @@ export async function sendTwoFactorEmail(user: Pick<User, "name" | "email" | "is
   });
 }
 
-/** Alerta de login em um aparelho que a conta nunca usou. */
-export async function sendNewDeviceEmail(user: Pick<User, "name" | "email" | "isDemo">, device: string, ip: string) {
+/**
+ * Alerta de segurança genérico, com o botão "Não fui eu — bloquear minha conta" (quando houver link).
+ * As linhas já devem vir escapadas.
+ */
+export async function sendSecurityAlertEmail(
+  user: Pick<User, "name" | "email" | "isDemo">,
+  alert: { subject: string; title: string; lines: string[]; lockUrl?: string },
+) {
   if (!emailEnabled() || user.isDemo) return;
   const origin = await siteOrigin();
-  const when = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
   await sendEmail({
     to: user.email,
-    subject: "Novo acesso à sua conta do Recebi",
+    subject: alert.subject,
     html: emailLayout({
-      preheader: `Entraram na sua conta pelo ${device}.`,
-      title: "Novo acesso à sua conta",
+      preheader: alert.title,
+      title: alert.title,
       paragraphs: [
-        `Olá, ${escapeHtml(user.name.split(" ")[0])}. Sua conta foi acessada de um aparelho novo:`,
-        `<strong>${escapeHtml(device)}</strong><br>${escapeHtml(when)} (horário de Brasília)${ip ? `<br>IP ${escapeHtml(ip)}` : ""}`,
-        "Se foi você, está tudo certo. Se não foi, troque sua senha agora e saia de todos os aparelhos.",
+        `Olá, ${escapeHtml(user.name.split(" ")[0])}.`,
+        ...alert.lines,
+        alert.lockUrl
+          ? `Se não foi você, <a href="${escapeHtml(alert.lockUrl)}">bloqueie sua conta agora</a>: todos os aparelhos são desconectados e você cria uma senha nova pelo "Esqueci a senha". O link vale por 7 dias.`
+          : "Se não foi você, troque sua senha e confira os aparelhos conectados.",
       ],
       cta: { label: "Revisar a segurança da conta", url: `${origin}${APP_PATH}/configuracoes/seguranca` },
     }),

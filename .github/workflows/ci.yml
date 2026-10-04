@@ -30,3 +30,15 @@ jobs:
 
       - name: Testes do Recebi
         run: node --test tests/recebi-lib.test.mjs
+
+      - name: Banco local para os testes de ataque
+        run: CI=1 bash scripts/db-migrate-local.sh
+
+      - name: Testes de ataque (site rodando)
+        run: |
+          bash scripts/sites-env.sh -- node_modules/.bin/vite preview --port 4173 > preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null http://127.0.0.1:4173/recebi; then break; fi
+            sleep 2
+          done
+          RECEBI_TEST_URL=http://127.0.0.1:4173 node --test tests/recebi-attack.test.mjs || { tail -50 preview.log; exit 1; }

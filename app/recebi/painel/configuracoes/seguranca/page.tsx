@@ -1,13 +1,19 @@
-import { CircleAlert, CircleCheck, Laptop, LogOut, Smartphone } from "lucide-react";
+import { CircleAlert, CircleCheck, KeyRound, Laptop, LogOut, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Input } from "@/components/ui/input";
 import { ActionButton } from "@/components/recebi/action-button";
 import { ActionForm } from "@/components/recebi/action-form";
 import { FormField } from "@/components/recebi/fields";
+import { PasskeyRegisterForm } from "@/components/recebi/passkey-buttons";
 import { SettingsSection } from "@/components/recebi/settings-section";
 import { TwoFactorPanel } from "@/components/recebi/two-factor-panel";
 import { changePassword } from "@/lib/recebi/actions/account";
+import { removePasskey } from "@/lib/recebi/actions/passkeys";
 import { resendVerificationEmail, revokeOtherSessions, revokeSession } from "@/lib/recebi/actions/security";
+import { APP_PATH } from "@/lib/recebi/config";
+import { listPasskeys } from "@/lib/recebi/passkeys";
+import { confirmPath, hasRecentAuth } from "@/lib/recebi/reauth";
 import { currentSessionId, GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
 import { listSessions } from "@/lib/recebi/data";
 import { formatDateTime, formatRelative } from "@/lib/recebi/dates";
@@ -37,10 +43,17 @@ const ALERT_EVENTS = new Set([
   "email-alterado",
 ]);
 
-export default async function SecuritySettingsPage() {
+export default async function SecuritySettingsPage({ searchParams }: { searchParams: Promise<{ admin?: string }> }) {
   const user = await requireUser();
+  const adminNeeds2fa = (await searchParams).admin === "1" && user.isAdmin;
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
-  const [sessionRows, current, events] = await Promise.all([listSessions(user.id), currentSessionId(), listSecurityEvents(user.id, 25)]);
+  const [sessionRows, current, events, keys, recent] = await Promise.all([
+    listSessions(user.id),
+    currentSessionId(),
+    listSecurityEvents(user.id, 25),
+    listPasskeys(user.id),
+    hasRecentAuth(),
+  ]);
   const pendingSecret = !user.totpEnabledAt && user.totpSecret ? await openTotpSecret(user) : "";
   const twoFactor = user.totpEnabledAt
     ? { status: "on" as const, enabledAt: user.totpEnabledAt, codesLeft: recoveryCodesLeft(user), needsPassword: !googleOnly }
@@ -54,6 +67,12 @@ export default async function SecuritySettingsPage() {
 
   return (
     <>
+      {adminNeeds2fa ? (
+        <p className="flex items-start gap-2 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm">
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+          Para usar o painel de administração, ative a verificação em duas etapas ou crie uma chave de acesso abaixo.
+        </p>
+      ) : null}
       <SettingsSection id="email" title="E-mail da conta" description="Usado para entrar, recuperar a senha e receber avisos de segurança.">
         <div className="grid gap-3">
           <p className="flex items-center gap-2 text-sm font-medium">
@@ -115,6 +134,56 @@ export default async function SecuritySettingsPage() {
           <p className="text-sm text-muted-foreground">Disponível nas contas de verdade.</p>
         ) : (
           <TwoFactorPanel {...twoFactor} />
+        )}
+      </SettingsSection>
+
+      <SettingsSection
+        id="chaves"
+        title="Chaves de acesso"
+        description="Entre com a digital, o rosto ou o PIN do aparelho, sem senha. É o jeito mais seguro: não dá para ser roubada por sites falsos."
+      >
+        {user.isDemo ? (
+          <p className="text-sm text-muted-foreground">Disponível nas contas de verdade.</p>
+        ) : (
+          <div className="grid gap-4">
+            {keys.length ? (
+              <ul className="grid gap-2">
+                {keys.map((key) => (
+                  <li key={key.id} className="flex items-center gap-3 rounded-xl border p-3">
+                    <KeyRound className="size-5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{key.name || "Chave de acesso"}</p>
+                      <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+                        Criada em {formatDateTime(key.createdAt)}
+                        {key.lastUsedAt ? ` · usada ${formatRelative(key.lastUsedAt)}` : " · ainda não usada"}
+                      </p>
+                    </div>
+                    {recent ? (
+                      <ActionButton
+                        action={removePasskey}
+                        fields={{ id: key.id }}
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Remover ${key.name}`}
+                      >
+                        <Trash2 /> Remover
+                      </ActionButton>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {recent ? (
+              <PasskeyRegisterForm />
+            ) : (
+              <Link
+                href={confirmPath(`${APP_PATH}/configuracoes/seguranca#chaves`)}
+                className="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold hover:bg-muted"
+              >
+                <ShieldCheck className="size-4" /> Confirmar identidade para {keys.length ? "gerenciar" : "criar"} chaves
+              </Link>
+            )}
+          </div>
         )}
       </SettingsSection>
 
