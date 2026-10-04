@@ -20,7 +20,14 @@ export async function listTeam(ownerId: string): Promise<TeamMember[]> {
 /** Contas de outras pessoas onde este usuário é membro (só as com Pro ativo). */
 export async function listWorkspaces(memberId: string) {
   const rows = await getDb()
-    .select({ ownerId: users.id, name: users.name, businessName: users.businessName, plan: users.plan, planExpiresAt: users.planExpiresAt, role: teamMembers.role })
+    .select({
+      ownerId: users.id,
+      name: users.name,
+      businessName: users.businessName,
+      plan: users.plan,
+      planExpiresAt: users.planExpiresAt,
+      role: teamMembers.role,
+    })
     .from(teamMembers)
     .innerJoin(users, eq(users.id, teamMembers.ownerId))
     .where(and(eq(teamMembers.memberId, memberId), isNotNull(teamMembers.acceptedAt)));

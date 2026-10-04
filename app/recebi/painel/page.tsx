@@ -47,7 +47,11 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mes?: string; "bem-vindo"?: string; "somente-leitura"?: string }> }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string; "bem-vindo"?: string; "somente-leitura"?: string }>;
+}) {
   const user = await requireUser();
   const params = await searchParams;
   const month = isValidMonth(params.mes) ? params.mes : currentMonth();

@@ -17,7 +17,13 @@ export default async function PainelLayout({ children }: { children: React.React
   const [clients, notices, running] = await Promise.all([listClients(user.id), unreadNotifications(user.id), runningTimer(user.id)]);
   const timer = running ? { startedAt: running.entry.startedAt, label: running.projectName ?? (running.entry.description || null) } : null;
   const bell = { items: notices.items, unread: notices.unread };
-  const navUser = { name: user.actorName ?? user.name, email: user.email, isAdmin: user.isAdmin, isPro: hasPro(user), isDemo: user.isDemo };
+  const navUser = {
+    name: user.actorName ?? user.name,
+    email: user.actorEmail ?? user.email,
+    isAdmin: user.isAdmin,
+    isPro: hasPro(user),
+    isDemo: user.isDemo,
+  };
 
   return (
     <CommandMenuProvider clients={clients.map((c) => ({ id: c.id, name: c.name }))} isAdmin={user.isAdmin}>

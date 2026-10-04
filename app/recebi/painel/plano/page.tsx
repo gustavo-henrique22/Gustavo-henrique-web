@@ -47,7 +47,11 @@ function Cell({ value }: { value: string | boolean }) {
   return <span className="text-sm">{value}</span>;
 }
 
-export default async function PlanPage({ searchParams }: { searchParams: Promise<{ pagamento?: string; payment_id?: string; limite?: string; cupom?: string }> }) {
+export default async function PlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pagamento?: string; payment_id?: string; limite?: string; cupom?: string }>;
+}) {
   const user = await requireActor();
   const { pagamento, payment_id, limite, cupom } = await searchParams;
 

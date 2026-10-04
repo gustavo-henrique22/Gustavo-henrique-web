@@ -36,6 +36,17 @@ Este repositório tem duas partes:
 - **Criptografia** dos dados sensíveis no banco (AES-256-GCM)
 - **Administração** em `/recebi/painel/admin`: assinantes, receita por mês (MRR), cadastros, uso dos recursos, pagamentos a vincular e status das integrações
 
+### Plano Pro
+
+- **Teste grátis de 7 dias** em toda conta nova (14 dias para quem chega por indicação).
+- **Tela de assinar**: ao bater um limite do Grátis, a mensagem traz o atalho "Ver o Pro" com quanto a pessoa já recebeu no ano.
+- **Lembretes**: aviso 3 dias antes de o Pro vencer e e-mail "sentimos sua falta" 7 dias depois, com o cupom marcado como "volta".
+- **Cupons** (Admin → Cupons): "dias de Pro" libera na hora; "desconto" vai no link da Kiwify/Shopify (crie o mesmo código lá).
+- **Equipe**: até 3 pessoas por conta, como Editor ou Só leitura (Painel → Equipe).
+- **Relatórios Pro**: lucro por cliente e projeto, quem paga atrasado, DAS e alerta do limite do MEI.
+- **Contrato** com aceite eletrônico no orçamento, **portal do cliente** (link fixo por cliente) e **despesa por foto** (precisa de `ANTHROPIC_API_KEY`).
+- **Admin → Cancelamentos**: quem não renovou, receita perdida, estornos e conversão do teste grátis.
+
 ## Onde ficam as coisas
 
 | Pasta | Conteúdo |

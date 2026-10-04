@@ -552,3 +552,34 @@ test("sends HTTP visitors to HTTPS, except on this computer", () => {
   assert.equal(headers.httpsRedirectUrl("http://localhost:5173/recebi", "http"), null);
   assert.equal(headers.httpsRedirectUrl("http://127.0.0.1:4173/recebi", "http"), null);
 });
+
+test("MEI forecast warns before the annual limit and estimates the DAS", async () => {
+  const { meiForecast, DEFAULT_DAS_CENTS } = await vite.ssrLoadModule("/lib/recebi/mei.ts");
+  const calm = meiForecast({ incomeYear: 3_000_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 0 });
+  assert.equal(calm.level, "ok");
+  assert.equal(calm.projectedIncome, 6_000_000);
+  assert.equal(calm.dasMonthly, DEFAULT_DAS_CENTS);
+  assert.equal(calm.dasRemaining, DEFAULT_DAS_CENTS * 6);
+  const close = meiForecast({ incomeYear: 3_500_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 7_500 });
+  assert.equal(close.level, "atencao");
+  assert.equal(close.dasMonthly, 7_500);
+  const over = meiForecast({ incomeYear: 5_000_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 0 });
+  assert.equal(over.level, "estoura");
+  assert.equal(over.limitMonth, 10);
+  assert.equal(meiForecast({ incomeYear: 9_000_000, monthsElapsed: 11, annualLimitCents: 8_100_000, dasCents: 0 }).level, "passou");
+});
+
+test("coupon codes are normalized and trial windows are computed from today", async () => {
+  const { normalizeCode } = await vite.ssrLoadModule("/lib/recebi/coupon-code.ts");
+  assert.equal(normalizeCode("  volta30 "), "VOLTA30");
+  assert.equal(normalizeCode("a b<script>"), "ABSCRIPT");
+  assert.equal(normalizeCode("x".repeat(50)).length, 32);
+  const { onTrial, trialFields, trialDaysLeft, TRIAL_DAYS } = await vite.ssrLoadModule("/lib/recebi/trial.ts");
+  const fields = trialFields();
+  assert.equal(fields.plan, "pro");
+  assert.equal(fields.planExpiresAt, fields.trialEndsAt);
+  assert.ok(onTrial(fields));
+  assert.equal(trialDaysLeft(fields), TRIAL_DAYS);
+  // Depois de pagar, a validade muda e deixa de ser teste.
+  assert.equal(onTrial({ ...fields, planExpiresAt: "2099-01-01" }), false);
+});

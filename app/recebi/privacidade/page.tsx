@@ -15,7 +15,7 @@ const PROCESSORS: [string, string][] = [
   ["Google", "Login com Google, apenas se você escolher entrar assim."],
   [
     "Anthropic (Claude)",
-    "Assistente com IA: quando você faz uma pergunta, enviamos o texto dela e um resumo numérico das suas finanças. Esses dados não são usados para treinar a IA.",
+    "Assistente com IA: quando você faz uma pergunta, enviamos o texto dela e um resumo numérico das suas finanças. Na despesa por foto, enviamos a imagem do comprovante para preencher os campos. Esses dados não são usados para treinar a IA.",
   ],
   ["Focus NFe", "Emissão de nota fiscal de serviço, apenas se você ativar e conectar a sua conta."],
   [

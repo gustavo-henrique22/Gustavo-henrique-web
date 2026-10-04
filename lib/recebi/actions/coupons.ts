@@ -8,7 +8,8 @@ import { fail, success, text, type ActionState } from "../action-state";
 import { logAdminAction, requireAdminAction } from "../admin-guard";
 import { requireActor } from "../auth";
 import { APP_PATH } from "../config";
-import { normalizeCode, redeemCoupon } from "../coupons";
+import { normalizeCode } from "../coupon-code";
+import { redeemCoupon } from "../coupons";
 import { formatDate } from "../dates";
 import { takeRateLimit } from "../rate-limit";
 

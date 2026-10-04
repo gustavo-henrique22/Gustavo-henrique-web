@@ -285,8 +285,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             Cupons
           </h2>
           <p className="mb-3 text-xs text-muted-foreground">
-            “Dias de Pro” libera o Pro na hora. “Desconto” vai no link de pagamento: crie o mesmo código na Kiwify/Shopify. Marque “volta” para
-            usar no e-mail de quem não renovou.
+            “Dias de Pro” libera o Pro na hora. “Desconto” vai no link de pagamento: crie o mesmo código na Kiwify/Shopify. Marque “volta”
+            para usar no e-mail de quem não renovou.
           </p>
           <ActionForm action={createCoupon} submitLabel="Criar cupom" resetOnSuccess>
             <div className="grid gap-3">

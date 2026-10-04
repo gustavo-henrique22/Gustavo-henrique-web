@@ -24,7 +24,12 @@ export async function getPortal(token: string) {
       .select()
       .from(invoices)
       .where(
-        and(eq(invoices.userId, row.owner.id), eq(invoices.clientId, row.client.id), ne(invoices.status, "rascunho"), isNull(invoices.linkDisabledAt)),
+        and(
+          eq(invoices.userId, row.owner.id),
+          eq(invoices.clientId, row.client.id),
+          ne(invoices.status, "rascunho"),
+          isNull(invoices.linkDisabledAt),
+        ),
       )
       .orderBy(desc(invoices.issueDate))
       .limit(100),

@@ -13,7 +13,18 @@ import { emailEnabled } from "../email";
 import { sendTeamInviteEmail } from "../notifications";
 import { takeRateLimit } from "../rate-limit";
 import { logSecurityEvent } from "../security";
-import { acceptInvite, closeWorkspaceSessions, createInvite, findInvite, listTeam, listWorkspaces, MAX_MEMBERS, ROLE_LABELS, setWorkspace, type TeamRole } from "../team";
+import {
+  acceptInvite,
+  closeWorkspaceSessions,
+  createInvite,
+  findInvite,
+  listTeam,
+  listWorkspaces,
+  MAX_MEMBERS,
+  ROLE_LABELS,
+  setWorkspace,
+  type TeamRole,
+} from "../team";
 
 const TEAM_PATH = `${APP_PATH}/equipe`;
 

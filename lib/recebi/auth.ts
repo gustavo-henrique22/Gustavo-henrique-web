@@ -152,7 +152,7 @@ const getSession = cache(async (): Promise<SessionInfo | null> => {
 export const getCurrentUser = cache(async (): Promise<User | null> => (await getSession())?.user ?? null);
 
 /** Conta em uso com o papel na equipe (quando a pessoa trabalha na conta de outra). */
-export type AccountUser = User & { teamRole?: "editor" | "leitura"; actorId?: string; actorName?: string };
+export type AccountUser = User & { teamRole?: "editor" | "leitura"; actorId?: string; actorName?: string; actorEmail?: string };
 
 /**
  * Conta cujos dados estão sendo usados nesta requisição: a própria, ou a do dono quando um membro da equipe
@@ -166,16 +166,16 @@ export const getAccount = cache(async (): Promise<AccountUser | null> => {
     .select({ owner: users, role: teamMembers.role })
     .from(teamMembers)
     .innerJoin(users, eq(users.id, teamMembers.ownerId))
-    .where(
-      and(
-        eq(teamMembers.ownerId, session.workspaceId),
-        eq(teamMembers.memberId, session.user.id),
-        isNotNull(teamMembers.acceptedAt),
-      ),
-    )
+    .where(and(eq(teamMembers.ownerId, session.workspaceId), eq(teamMembers.memberId, session.user.id), isNotNull(teamMembers.acceptedAt)))
     .limit(1);
   if (!row || !hasPro(row.owner)) return session.user;
-  return { ...(await openUser(row.owner)), teamRole: row.role, actorId: session.user.id, actorName: session.user.name };
+  return {
+    ...(await openUser(row.owner)),
+    teamRole: row.role,
+    actorId: session.user.id,
+    actorName: session.user.name,
+    actorEmail: session.user.email,
+  };
 });
 
 /** Pedido de server action (gravação)? */

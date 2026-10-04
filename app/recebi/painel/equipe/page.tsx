@@ -26,10 +26,16 @@ export default async function TeamPage() {
         {workspaces.length ? (
           <SettingsSection title="Contas que você acessa" description="Escolha em qual conta trabalhar agora.">
             <ul className="grid gap-2">
-              {[{ ownerId: "", name: `${actor.businessName || actor.name} (sua conta)`, role: null as null | keyof typeof ROLE_LABELS }, ...workspaces].map((w) => {
+              {[
+                { ownerId: "", name: `${actor.businessName || actor.name} (sua conta)`, role: null as null | keyof typeof ROLE_LABELS },
+                ...workspaces,
+              ].map((w) => {
                 const active = (w.ownerId || actor.id) === currentId;
                 return (
-                  <li key={w.ownerId || "self"} className={cn("flex flex-wrap items-center gap-3 rounded-xl border p-3", active && "border-income/40 bg-income/5")}>
+                  <li
+                    key={w.ownerId || "self"}
+                    className={cn("flex flex-wrap items-center gap-3 rounded-xl border p-3", active && "border-income/40 bg-income/5")}
+                  >
                     <Users className="size-5 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{w.name}</p>
@@ -43,7 +49,13 @@ export default async function TeamPage() {
                       </ActionButton>
                     )}
                     {w.ownerId ? (
-                      <ActionButton action={leaveTeam} fields={{ ownerId: w.ownerId }} variant="ghost" size="sm" aria-label={`Sair da equipe de ${w.name}`}>
+                      <ActionButton
+                        action={leaveTeam}
+                        fields={{ ownerId: w.ownerId }}
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Sair da equipe de ${w.name}`}
+                      >
                         <LogOut /> Sair
                       </ActionButton>
                     ) : null}

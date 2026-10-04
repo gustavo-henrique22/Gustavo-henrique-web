@@ -108,9 +108,7 @@ export default async function ClientPortalPage({ params }: { params: Promise<{ t
         )}
       </section>
 
-      <p className="mt-8 text-center text-xs text-muted-foreground">
-        Link pessoal e privado. Não compartilhe com outras pessoas.
-      </p>
+      <p className="mt-8 text-center text-xs text-muted-foreground">Link pessoal e privado. Não compartilhe com outras pessoas.</p>
     </div>
   );
 }

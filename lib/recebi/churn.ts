@@ -16,7 +16,9 @@ export async function churnReport() {
     db
       .select({ id: users.id, name: users.name, email: users.email, expiredAt: users.planExpiresAt, trialEndsAt: users.trialEndsAt })
       .from(users)
-      .where(and(realUser, eq(users.plan, "pro"), isNotNull(users.planExpiresAt), gte(users.planExpiresAt, d90), lt(users.planExpiresAt, today)))
+      .where(
+        and(realUser, eq(users.plan, "pro"), isNotNull(users.planExpiresAt), gte(users.planExpiresAt, d90), lt(users.planExpiresAt, today)),
+      )
       .orderBy(desc(users.planExpiresAt))
       .limit(200),
     // Testes grátis que terminaram nos últimos 90 dias, e quantos viraram pagantes.
@@ -28,7 +30,12 @@ export async function churnReport() {
       .from(users)
       .where(and(realUser, isNotNull(users.trialEndsAt), gte(users.trialEndsAt, d90), lt(users.trialEndsAt, today))),
     db
-      .select({ kind: externalPayments.event, status: externalPayments.status, email: externalPayments.email, createdAt: externalPayments.createdAt })
+      .select({
+        kind: externalPayments.event,
+        status: externalPayments.status,
+        email: externalPayments.email,
+        createdAt: externalPayments.createdAt,
+      })
       .from(externalPayments)
       .where(gte(externalPayments.createdAt, d30))
       .orderBy(desc(externalPayments.createdAt))
@@ -64,6 +71,10 @@ export async function churnReport() {
     lostMrr30: lost30.reduce((sum, p) => sum + p.monthlyCents, 0),
     refunds30: events.filter(isRefund).length,
     cancellations30: events.filter(isCancel).length,
-    trials: { ended: trials.ended, converted: trials.converted, rate: trials.ended ? Math.round((trials.converted / trials.ended) * 100) : 0 },
+    trials: {
+      ended: trials.ended,
+      converted: trials.converted,
+      rate: trials.ended ? Math.round((trials.converted / trials.ended) * 100) : 0,
+    },
   };
 }

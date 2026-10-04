@@ -9,8 +9,10 @@ import { ConfirmAction } from "@/components/recebi/confirm-action";
 import { Select } from "@/components/recebi/fields";
 import { MonthSwitcher } from "@/components/recebi/month-switcher";
 import { PageHeader } from "@/components/recebi/page-header";
+import { ReceiptScanButton } from "@/components/recebi/receipt-scan";
 import { EditTransactionDialog, NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { deleteTransaction, toggleTransactionStatus } from "@/lib/recebi/actions/finance";
+import { aiEnabled } from "@/lib/recebi/ai";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { listClients, listProjects, listTransactions } from "@/lib/recebi/data";
@@ -82,6 +84,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               attachments={attachments}
               defaultOpen={params.novo === "despesa"}
             />
+            {hasPro(user) && aiEnabled() ? (
+              <ReceiptScanButton clients={clients} projects={projects} attach={attachments === "enabled"} />
+            ) : null}
           </>
         }
       />

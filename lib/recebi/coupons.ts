@@ -4,15 +4,10 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { couponRedemptions, coupons, users, type Coupon, type User } from "@/db/schema";
+import { normalizeCode } from "./coupon-code";
 import { addDays, todayISO } from "./dates";
 
-export function normalizeCode(code: string): string {
-  return code
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9_-]/g, "")
-    .slice(0, 32);
-}
+export { normalizeCode };
 
 export async function listCoupons(): Promise<Coupon[]> {
   return getDb().select().from(coupons).orderBy(desc(coupons.createdAt)).limit(100);

@@ -231,15 +231,25 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <h2 className="mt-8 mb-3 text-lg font-bold">Relatórios Pro</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         <ProGate pro={pro}>
-          <ProfitTable title="Lucro por cliente" subtitle="Receitas menos despesas ligadas a cada cliente, no ano" rows={pro ? byClient : DEMO_PROFIT} />
+          <ProfitTable
+            title="Lucro por cliente"
+            subtitle="Receitas menos despesas ligadas a cada cliente, no ano"
+            rows={pro ? byClient : DEMO_PROFIT}
+          />
         </ProGate>
         <ProGate pro={pro}>
-          <ProfitTable title="Lucro por projeto" subtitle="Quanto cada projeto rendeu de verdade, no ano" rows={pro ? byProject : DEMO_PROFIT} />
+          <ProfitTable
+            title="Lucro por projeto"
+            subtitle="Quanto cada projeto rendeu de verdade, no ano"
+            rows={pro ? byProject : DEMO_PROFIT}
+          />
         </ProGate>
         <ProGate pro={pro}>
           <section className="h-full rounded-2xl border bg-card p-5 shadow-xs">
             <h2 className="font-bold">Quem paga atrasado</h2>
-            <p className="mb-4 text-xs text-muted-foreground">Cobranças dos últimos 12 meses pagas depois do vencimento ou ainda vencidas</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Cobranças dos últimos 12 meses pagas depois do vencimento ou ainda vencidas
+            </p>
             {late.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">Nenhum cliente com atraso. 👏</p>
             ) : (
@@ -271,7 +281,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 role="alert"
                 className={cn(
                   "mb-4 rounded-lg border px-3 py-2 text-sm font-medium",
-                  mei.level === "atencao" ? "border-warning/30 bg-warning/10 text-warning" : "border-destructive/30 bg-destructive/10 text-destructive",
+                  mei.level === "atencao"
+                    ? "border-warning/30 bg-warning/10 text-warning"
+                    : "border-destructive/30 bg-destructive/10 text-destructive",
                 )}
               >
                 {mei.level === "passou"
