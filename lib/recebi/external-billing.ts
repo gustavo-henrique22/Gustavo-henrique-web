@@ -14,6 +14,7 @@ import { normalizeEmail } from "./auth";
 import { extendPro } from "./billing";
 import { APP_PATH } from "./config";
 import { addMonthsToDate, todayISO } from "./dates";
+import { countDiscountUse } from "./coupons";
 import { emailEnabled, readEnv } from "./email";
 import { sendProActivatedEmail } from "./notifications";
 import { type ExternalEvent, type Provider } from "./payment-providers";
@@ -31,7 +32,10 @@ export function checkoutProviderName(): string {
 }
 
 /** Link de pagamento com o e-mail e o id da conta, para a liberação ser automática. */
-export function externalCheckoutUrl(user: Pick<User, "id" | "email" | "name">, plan: "mensal" | "anual"): string | null {
+export function externalCheckoutUrl(
+  user: Pick<User, "id" | "email" | "name"> & { checkoutCoupon?: string },
+  plan: "mensal" | "anual",
+): string | null {
   const base = readEnv(plan === "anual" ? "RECEBI_CHECKOUT_ANUAL_URL" : "RECEBI_CHECKOUT_MENSAL_URL");
   if (!base) return null;
   let url: URL;
@@ -44,12 +48,14 @@ export function externalCheckoutUrl(user: Pick<User, "id" | "email" | "name">, p
   if (/\/cart\//.test(url.pathname) || /myshopify\.com$/.test(url.hostname)) {
     url.searchParams.set("checkout[email]", user.email);
     url.searchParams.set("attributes[recebi_user]", user.id);
+    if (user.checkoutCoupon) url.searchParams.set("discount", user.checkoutCoupon);
   } else {
     // Kiwify: preenche o e-mail e devolve o "sck" no webhook (TrackingParameters).
     url.searchParams.set("email", user.email);
     url.searchParams.set("name", user.name);
     url.searchParams.set("sck", user.id);
     url.searchParams.set("src", "recebi");
+    if (user.checkoutCoupon) url.searchParams.set("coupon", user.checkoutCoupon);
   }
   return url.toString();
 }
@@ -90,6 +96,11 @@ async function activate(user: User, event: ExternalEvent, rowId: string): Promis
   await db.update(externalPayments).set({ userId: user.id, handledAt: new Date().toISOString() }).where(eq(externalPayments.id, rowId));
   if (inserted.length === 0) return false;
   const until = await extendPro(user, event.months);
+  // Cupom de desconto usado no link: conta o uso e limpa da conta.
+  if (user.checkoutCoupon) {
+    await countDiscountUse(user.checkoutCoupon);
+    await db.update(users).set({ checkoutCoupon: "" }).where(eq(users.id, user.id));
+  }
   await notify(user.id, {
     type: "pro",
     title: "Seu plano Pro está ativo ✨",

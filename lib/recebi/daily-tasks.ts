@@ -10,6 +10,7 @@ import { todayISO } from "./dates";
 import { reencryptPending } from "./encryption-jobs";
 import { refreshPendingNfse } from "./nfse";
 import { sendDueReminders } from "./notifications";
+import { sendPlanReminders } from "./plan-lifecycle";
 import { generateDueRecurring } from "./recurring";
 import { sqliteTimestamp } from "./rate-limit";
 import { sendMonthlySummaries } from "./summary";
@@ -30,11 +31,12 @@ export async function runDailyTasks() {
   const recurring = await step("recorrentes", () => generateDueRecurring(), 0);
   const reminders = await step("lembretes", () => sendDueReminders(), { sent: 0, checked: 0 });
   const summaries = await step("resumos", () => sendMonthlySummaries(), 0);
+  const plan = await step("plano", () => sendPlanReminders(), { reminders: 0, winback: 0 });
   const nfse = await step("notas", () => refreshPendingNfse(), 0);
   const encrypted = await step("criptografia", () => reencryptPending(), 0);
   const removed = await step("limpeza", () => removeExpiredRecords(), 0);
   const backup = await step("backup", () => createBackup(), null);
-  return { recurring, ...reminders, summaries, nfse, encrypted, removed, backup: backup?.key ?? null };
+  return { recurring, ...reminders, summaries, plan, nfse, encrypted, removed, backup: backup?.key ?? null };
 }
 
 /** Prazo da política de privacidade: avisos de pagamento ficam no máximo 5 anos. */

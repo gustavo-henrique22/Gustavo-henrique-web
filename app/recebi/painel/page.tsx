@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mes?: string; "bem-vindo"?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mes?: string; "bem-vindo"?: string; "somente-leitura"?: string }> }) {
   const user = await requireUser();
   const params = await searchParams;
   const month = isValidMonth(params.mes) ? params.mes : currentMonth();
@@ -76,7 +76,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const freeCash = profit - taxEstimate;
   const goalPercent = user.monthlyGoalCents > 0 ? Math.round((totals.incomePaid / user.monthlyGoalCents) * 100) : null;
   const limitPercent = user.annualLimitCents > 0 ? Math.round((yearIncome / user.annualLimitCents) * 100) : null;
-  const firstName = user.name.trim().split(/\s+/)[0];
+  const firstName = (user.actorName ?? user.name).trim().split(/\s+/)[0];
   const previous = series[series.length - 2];
   const prevLabel = `vs ${monthShortLabel(previous.month).split("/")[0]}`;
   const change = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
@@ -97,6 +97,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </>
         }
       />
+      {params["somente-leitura"] ? (
+        <p role="alert" className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
+          Seu acesso a esta conta é só de leitura. Peça ao dono para mudar seu papel para Editor.
+        </p>
+      ) : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
         <NewTransactionButton type="receita" clients={clientsList} projects={projects} label="Nova receita" />

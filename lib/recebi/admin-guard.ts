@@ -57,6 +57,9 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "link-senha": "Gerou link de nova senha",
   "pagamento-vinculado": "Vinculou pagamento",
   "backup-baixado": "Baixou cópia de segurança",
+  "cupom-criado": "Criou cupom",
+  "cupom-ativado": "Ativou cupom",
+  "cupom-desativado": "Desativou cupom",
 };
 
 export async function listAdminAudit(limit = 30) {

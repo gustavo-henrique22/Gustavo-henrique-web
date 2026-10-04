@@ -8,13 +8,15 @@ import { FormField } from "@/components/recebi/fields";
 import { PageHeader } from "@/components/recebi/page-header";
 import { SubmitButton } from "@/components/recebi/submit-button";
 import { claimExternalPayment, startCheckout } from "@/lib/recebi/actions/billing";
+import { applyCoupon } from "@/lib/recebi/actions/coupons";
 import { hasPro, requireActor } from "@/lib/recebi/auth";
 import { billingEnabled, processPayment } from "@/lib/recebi/billing";
 import { APP_PATH, FREE_LIMITS, PRO_PRICE_CENTS, PRO_YEARLY_PRICE_CENTS, whatsappLink } from "@/lib/recebi/config";
-import { countActiveClients, countInvoicesInMonth, countQuotesInMonth, getUserById } from "@/lib/recebi/data";
-import { currentMonth, formatDate } from "@/lib/recebi/dates";
+import { countActiveClients, countInvoicesInMonth, countQuotesInMonth, getUserById, paidIncomeBetween } from "@/lib/recebi/data";
+import { currentMonth, formatDate, todayISO } from "@/lib/recebi/dates";
 import { checkoutProviderName, externalCheckoutEnabled, externalCheckoutUrl } from "@/lib/recebi/external-billing";
 import { formatMoney } from "@/lib/recebi/money";
+import { onTrial, trialDaysLeft } from "@/lib/recebi/trial";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Plano" };
@@ -45,9 +47,9 @@ function Cell({ value }: { value: string | boolean }) {
   return <span className="text-sm">{value}</span>;
 }
 
-export default async function PlanPage({ searchParams }: { searchParams: Promise<{ pagamento?: string; payment_id?: string }> }) {
+export default async function PlanPage({ searchParams }: { searchParams: Promise<{ pagamento?: string; payment_id?: string; limite?: string; cupom?: string }> }) {
   const user = await requireActor();
-  const { pagamento, payment_id } = await searchParams;
+  const { pagamento, payment_id, limite, cupom } = await searchParams;
 
   // Ao voltar do Mercado Pago, confere o pagamento na hora (o webhook também faz isso).
   const result = payment_id && billingEnabled() ? await processPayment(payment_id, user.id) : null;
@@ -55,11 +57,14 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const fresh = result === "ativado" || result === "ja-processado" ? ((await getUserById(user.id)) ?? user) : user;
   const pro = hasPro(fresh);
 
-  const [clients, invoices, quotes] = await Promise.all([
+  const year = todayISO().slice(0, 4);
+  const [clients, invoices, quotes, earnedYear] = await Promise.all([
     countActiveClients(user.id),
     countInvoicesInMonth(user.id, currentMonth()),
     countQuotesInMonth(user.id, currentMonth()),
+    paidIncomeBetween(user.id, `${year}-01-01`, `${year}-12-31`),
   ]);
+  const trial = onTrial(fresh);
   const external = externalCheckoutEnabled() && !user.isDemo;
   const online = !external && billingEnabled() && !user.isDemo;
   const providerName = external ? checkoutProviderName() : "Mercado Pago";
@@ -91,6 +96,33 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </Banner>
       ) : null}
 
+      {limite && !pro ? (
+        <section className="mb-4 rounded-2xl border border-[#c9ff3c]/60 bg-[#c9ff3c]/10 p-5">
+          <p className="flex items-center gap-2 text-lg font-extrabold">
+            <Sparkles className="size-5 text-[#7da800] dark:text-brand" aria-hidden /> Seu negócio cresceu além do plano Grátis
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {earnedYear > 0 ? (
+              <>
+                Você já recebeu <strong className="text-foreground">{formatMoney(earnedYear)}</strong> em {year} pelo Recebi. O Pro custa{" "}
+                {formatMoney(PRO_PRICE_CENTS)} por mês ({Math.max(0.1, Math.round((PRO_PRICE_CENTS * 12 * 1000) / earnedYear) / 10)}% do que
+                você recebeu no ano) e libera tudo ilimitado.
+              </>
+            ) : (
+              <>Com o Pro você tem clientes, orçamentos e cobranças ilimitados, por {formatMoney(PRO_PRICE_CENTS)} por mês.</>
+            )}{" "}
+            Um único cliente a mais por mês já paga a assinatura.
+          </p>
+        </section>
+      ) : null}
+
+      {trial ? (
+        <Banner tone="wait" icon={<Sparkles className="size-5" />}>
+          Você está no teste grátis do Pro: {trialDaysLeft(fresh) === 0 ? "termina hoje" : `faltam ${trialDaysLeft(fresh)} dias`} (até{" "}
+          {formatDate(fresh.trialEndsAt)}). Assine para continuar sem interrupção.
+        </Banner>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-2xl border bg-card p-6 shadow-xs">
           <p className="text-sm text-muted-foreground">Plano atual</p>
@@ -105,8 +137,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           </p>
           {pro ? (
             <p className="mt-2 text-sm text-muted-foreground">
-              {fresh.planExpiresAt ? `Válido até ${formatDate(fresh.planExpiresAt)}.` : "Sem data de expiração."} Obrigado por apoiar o
-              Recebi!
+              {fresh.planExpiresAt ? `Válido até ${formatDate(fresh.planExpiresAt)}.` : "Sem data de expiração."}{" "}
+              {trial ? "Teste grátis." : "Obrigado por apoiar o Recebi!"}
             </p>
           ) : (
             <dl className="mt-5 grid gap-4 text-sm">
@@ -115,6 +147,29 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               <Usage label="Cobranças este mês" used={invoices} limit={FREE_LIMITS.invoicesPerMonth} />
             </dl>
           )}
+          {!user.isDemo ? (
+            <div className="mt-6">
+              <p className="mb-2 text-sm font-semibold">Tem um cupom?</p>
+              <ActionForm action={applyCoupon} submitLabel="Aplicar cupom" resetOnSuccess>
+                <FormField id="couponCode" label="Código do cupom">
+                  <Input
+                    id="couponCode"
+                    name="code"
+                    required
+                    maxLength={32}
+                    autoComplete="off"
+                    defaultValue={cupom?.slice(0, 32) ?? ""}
+                    className="uppercase"
+                  />
+                </FormField>
+              </ActionForm>
+              {fresh.checkoutCoupon ? (
+                <p className="mt-2 text-xs text-income">
+                  Cupom <strong>{fresh.checkoutCoupon}</strong> aplicado: o desconto vai no link de pagamento.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {!user.isDemo ? (
             <Link
               href={`${APP_PATH}/indique`}
@@ -140,25 +195,25 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <div className="relative mt-5 grid gap-3 sm:grid-cols-2">
             <PlanOption
               plan="mensal"
-              externalUrl={external ? externalCheckoutUrl(user, "mensal") : null}
+              externalUrl={external ? externalCheckoutUrl(fresh, "mensal") : null}
               title="Mensal"
               price={formatMoney(PRO_PRICE_CENTS)}
               period="/mês"
               note="Cancele quando quiser"
               online={online}
               whatsapp={whatsappLink(message + " (mensal)")}
-              renew={pro}
+              renew={pro && !trial}
             />
             <PlanOption
               plan="anual"
-              externalUrl={external ? externalCheckoutUrl(user, "anual") : null}
+              externalUrl={external ? externalCheckoutUrl(fresh, "anual") : null}
               title="Anual"
               price={formatMoney(PRO_YEARLY_PRICE_CENTS)}
               period="/ano"
               note={`2 meses grátis · ${formatMoney(Math.round(PRO_YEARLY_PRICE_CENTS / 12))}/mês`}
               online={online}
               whatsapp={whatsappLink(message + " (anual)")}
-              renew={pro}
+              renew={pro && !trial}
               highlight
             />
           </div>
