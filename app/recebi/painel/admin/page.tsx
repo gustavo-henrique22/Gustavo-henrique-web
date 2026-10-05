@@ -16,6 +16,7 @@ import { payments, users } from "@/db/schema";
 import { adminAssignPayment, setUserPlan } from "@/lib/recebi/actions/admin";
 import { createCoupon, toggleCoupon } from "@/lib/recebi/actions/coupons";
 import { churnReport } from "@/lib/recebi/churn";
+import { recentErrors } from "@/lib/recebi/error-log";
 import { listCoupons } from "@/lib/recebi/coupons";
 import { FormField } from "@/components/recebi/fields";
 import { businessMetrics } from "@/lib/recebi/admin-metrics";
@@ -43,7 +44,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const db = getDb();
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, recentPayments, metrics, unmatched, audit, backups, churn, couponList] = await Promise.all([
+  const [list, recentPayments, metrics, unmatched, audit, backups, churn, couponList, errors] = await Promise.all([
     db
       .select()
       .from(users)
@@ -62,6 +63,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     listBackups(),
     churnReport(),
     listCoupons(),
+    recentErrors(20),
   ]);
 
   const integrations = [
@@ -276,6 +278,35 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </div>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">Ninguém deixou de renovar nos últimos 90 dias. 🎉</p>
+        )}
+      </section>
+
+      <section aria-labelledby="erros" className="mt-4 rounded-2xl border bg-card p-5 shadow-xs">
+        <h2 id="erros" className="font-bold">
+          Erros do site
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          {errors.last24h} nas últimas 24 horas. Telas que quebraram no navegador e tarefas automáticas que falharam (guardados por 30
+          dias).
+        </p>
+        {errors.rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum erro registrado. 🎉</p>
+        ) : (
+          <ul className="grid gap-2 text-sm">
+            {errors.rows.map((e) => (
+              <li key={e.id} className="rounded-lg border px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant={e.source === "servidor" ? "destructive" : "secondary"}>
+                    {e.source === "servidor" ? "Servidor" : "Navegador"}
+                  </Badge>
+                  <span>{formatDateTime(e.createdAt)}</span>
+                  {e.path ? <span className="font-mono">{e.path}</span> : null}
+                  {e.digest ? <span className="font-mono">código {e.digest}</span> : null}
+                </div>
+                <p className="mt-1 font-mono text-xs break-all">{e.message}</p>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

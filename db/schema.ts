@@ -759,3 +759,20 @@ export type Passkey = typeof passkeys.$inferSelect;
 export type AdminAudit = typeof adminAudit.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type Coupon = typeof coupons.$inferSelect;
+
+/** Erros do site (navegador e servidor), para o admin acompanhar. Guardados por 30 dias, sem dados pessoais além do id da conta. */
+export const errorLogs = sqliteTable(
+  "error_logs",
+  {
+    id: text("id").primaryKey(),
+    source: text("source", { enum: ["navegador", "servidor"] }).notNull(),
+    message: text("message").notNull(),
+    path: text("path").notNull().default(""),
+    digest: text("digest").notNull().default(""),
+    userId: text("user_id"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("error_logs_created_idx").on(table.createdAt)],
+);
+
+export type ErrorLog = typeof errorLogs.$inferSelect;

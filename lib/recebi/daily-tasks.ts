@@ -6,6 +6,7 @@ import { lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { externalPayments, loginAttempts } from "@/db/schema";
 import { createBackup } from "./backup";
+import { logError, removeOldErrors } from "./error-log";
 import { todayISO } from "./dates";
 import { reencryptPending } from "./encryption-jobs";
 import { refreshPendingNfse } from "./nfse";
@@ -24,6 +25,7 @@ async function step<T>(name: string, task: () => Promise<T>, fallback: T): Promi
     return await task();
   } catch (error) {
     console.error(`tarefas-diarias:${name}`, error);
+    await logError({ source: "servidor", message: `Tarefa diária "${name}": ${error instanceof Error ? error.message : String(error)}` });
     return fallback;
   }
 }
@@ -37,7 +39,7 @@ export async function runDailyTasks() {
   const deadlines = await step("prazos", () => sendProjectDeadlines(), 0);
   const nfse = await step("notas", () => refreshPendingNfse(), 0);
   const encrypted = await step("criptografia", () => reencryptPending(), 0);
-  const removed = await step("limpeza", () => removeExpiredRecords(), 0);
+  const removed = await step("limpeza", async () => (await removeExpiredRecords()) + (await removeOldErrors()), 0);
   const backup = await step("backup", () => createBackup(), null);
   return { recurring, ...reminders, summaries, plan, das, deadlines, nfse, encrypted, removed, backup: backup?.key ?? null };
 }

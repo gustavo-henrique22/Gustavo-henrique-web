@@ -595,3 +595,37 @@ test("WhatsApp charge messages fit the moment and keep the payment link", async 
   assert.equal(whatsappLink("(11) 98765-4321", "oi"), "https://wa.me/5511987654321?text=oi");
   assert.equal(whatsappLink(null, "oi"), "https://wa.me/?text=oi");
 });
+
+test("achievements unlock from real milestones and error text is scrubbed", async () => {
+  const { evaluateAchievements, profitStreak } = await vite.ssrLoadModule("/lib/recebi/achievement-rules.ts");
+  assert.equal(profitStreak([100, -5, 10, 20, 30]), 3);
+  assert.equal(profitStreak([10, 0]), 0);
+  const none = evaluateAchievements({
+    paidInvoices: 0,
+    totalReceivedCents: 0,
+    approvedQuotes: 0,
+    clients: 0,
+    monthlyProfit: [],
+    goalCents: 0,
+    monthIncomeCents: 0,
+  });
+  assert.ok(none.every((a) => !a.earned));
+  const some = evaluateAchievements({
+    paidInvoices: 12,
+    totalReceivedCents: 1_500_000,
+    approvedQuotes: 1,
+    clients: 3,
+    monthlyProfit: [1, 2, 3],
+    goalCents: 500_000,
+    monthIncomeCents: 600_000,
+  });
+  const earned = some.filter((a) => a.earned).map((a) => a.key);
+  assert.deepEqual(earned, ["primeira-cobranca", "dez-cobrancas", "orcamento-aprovado", "meta-batida", "tres-meses-lucro", "dez-mil"]);
+});
+
+test("error reports never keep e-mails, documents or link tokens", async () => {
+  const { scrubErrorText } = await vite.ssrLoadModule("/lib/recebi/error-scrub.ts");
+  const out = scrubErrorText("Falha para ana@x.com CPF 123.456.789-00 em /c/AbCdEfGhIjKlMnOpQrStUvWxYz12");
+  assert.doesNotMatch(out, /ana@x\.com|123\.456|AbCdEfGh/);
+  assert.match(out, /\[email\].*\[número\].*\[token\]/);
+});

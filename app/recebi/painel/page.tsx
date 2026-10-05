@@ -6,8 +6,10 @@ import {
   CircleDollarSign,
   FileSignature,
   Landmark,
+  Lock,
   PiggyBank,
   Target,
+  Trophy,
   Wallet,
   WandSparkles,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { aiEnabled } from "@/lib/recebi/ai";
 import { emailEnabled } from "@/lib/recebi/email";
+import { loadAchievements } from "@/lib/recebi/achievements";
 import { requireUser } from "@/lib/recebi/auth";
 import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -75,6 +78,13 @@ export default async function DashboardPage({
     ]);
 
   const projects = projectRows.map((r) => r.project);
+  // Conquistas: meses já fechados contam para a sequência de lucro.
+  const achievements = await loadAchievements(
+    user.id,
+    { monthlyProfit: series.slice(0, -1).map((m) => m.profit), goalCents: user.monthlyGoalCents, monthIncomeCents: totals.incomePaid },
+    { announce: month === currentMonth() && !user.teamRole && !user.isDemo },
+  );
+  const earnedCount = achievements.filter((a) => a.earned).length;
   const profit = totals.incomePaid - totals.expensePaid;
   const taxEstimate = Math.round((totals.incomePaid * user.taxRateBp) / 10_000);
   const freeCash = profit - taxEstimate;
@@ -266,6 +276,39 @@ export default async function DashboardPage({
           <ForecastCard months={forecast.months} avgIncome={forecast.avgIncome} />
         </div>
       ) : null}
+
+      <section aria-labelledby="conquistas-title" className="mt-4 rounded-2xl border bg-card p-5 shadow-xs">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 id="conquistas-title" className="flex items-center gap-2 font-bold">
+            <Trophy className="size-4" aria-hidden /> Conquistas
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            {earnedCount} de {achievements.length}
+          </span>
+        </div>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {achievements.map((a) => (
+            <li
+              key={a.key}
+              className={cn(
+                "rounded-xl border px-3 py-2.5 text-sm",
+                a.earned ? "border-[#c9ff3c] bg-[#c9ff3c]/15" : "border-dashed text-muted-foreground",
+              )}
+            >
+              <p className="flex items-center gap-1.5 font-semibold">
+                {a.earned ? (
+                  <Trophy className="size-3.5 text-[#7da800] dark:text-brand" aria-hidden />
+                ) : (
+                  <Lock className="size-3.5" aria-hidden />
+                )}
+                {a.title}
+                <span className="sr-only">{a.earned ? "(conquistada)" : "(ainda não)"}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{a.description}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <section className="rounded-2xl border bg-card p-5 shadow-xs lg:col-span-2" aria-labelledby="agenda-title">

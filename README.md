@@ -45,6 +45,8 @@ Este repositório tem duas partes:
 - **Equipe**: até 3 pessoas por conta, como Editor ou Só leitura (Painel → Equipe).
 - **Relatórios Pro**: lucro por cliente e projeto, quem paga atrasado, DAS e alerta do limite do MEI.
 - **Contrato** com aceite eletrônico no orçamento, **portal do cliente** (link fixo por cliente) e **despesa por foto** (precisa de `ANTHROPIC_API_KEY`).
+- **Rotina**: lembrete do DAS do MEI (dia 15), avisos de prazo de projetos, botão “Cobrar pelo WhatsApp”, papel “Contador” na equipe e conquistas no painel.
+- **Admin → Erros do site**: telas que quebraram e tarefas automáticas que falharam (30 dias, sem e-mails/CPF/tokens).
 - **Admin → Cancelamentos**: quem não renovou, receita perdida, estornos e conversão do teste grátis.
 
 ## Onde ficam as coisas
