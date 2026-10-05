@@ -1,5 +1,5 @@
 // Plano Equipe (Pro): o dono convida até MAX_MEMBERS pessoas para trabalhar na conta dele.
-// Papéis: "editor" (usa tudo do dia a dia) e "leitura" (só vê). Configurações, segurança, plano e cobrança da
+// Papéis: "editor" (usa tudo do dia a dia), "leitura" (só vê) e "contador" (só vê, entra direto nos relatórios). Configurações, segurança, plano e cobrança da
 // assinatura continuam só do dono. Cada membro entra com a própria conta e escolhe em qual conta trabalhar.
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -10,7 +10,7 @@ import { randomToken, sha256Hex } from "./crypto";
 import { siteOrigin } from "./origin";
 
 export const MAX_MEMBERS = 3;
-export const ROLE_LABELS = { editor: "Editor", leitura: "Só leitura" } as const;
+export const ROLE_LABELS = { editor: "Editor", leitura: "Só leitura", contador: "Contador (só leitura)" } as const;
 export type TeamRole = keyof typeof ROLE_LABELS;
 
 export async function listTeam(ownerId: string): Promise<TeamMember[]> {

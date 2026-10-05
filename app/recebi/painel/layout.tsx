@@ -31,7 +31,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <AppSidebar user={navUser} />
         <div className="flex min-w-0 flex-1 flex-col">
           {user.isDemo ? <DemoBanner /> : null}
-          {user.teamRole ? <TeamBanner ownerName={user.name} readOnly={user.teamRole === "leitura"} /> : null}
+          {user.teamRole ? <TeamBanner ownerName={user.name} readOnly={user.teamRole !== "editor"} /> : null}
           {!user.teamRole && !user.isDemo && onTrial(user) ? <TrialBanner daysLeft={trialDaysLeft(user)} /> : null}
           <MobileNav user={navUser} bell={bell} timer={timer} />
           <DesktopTopbar bell={bell} timer={timer} />

@@ -152,7 +152,12 @@ const getSession = cache(async (): Promise<SessionInfo | null> => {
 export const getCurrentUser = cache(async (): Promise<User | null> => (await getSession())?.user ?? null);
 
 /** Conta em uso com o papel na equipe (quando a pessoa trabalha na conta de outra). */
-export type AccountUser = User & { teamRole?: "editor" | "leitura"; actorId?: string; actorName?: string; actorEmail?: string };
+export type AccountUser = User & {
+  teamRole?: "editor" | "leitura" | "contador";
+  actorId?: string;
+  actorName?: string;
+  actorEmail?: string;
+};
 
 /**
  * Conta cujos dados estão sendo usados nesta requisição: a própria, ou a do dono quando um membro da equipe
@@ -195,7 +200,7 @@ async function isActionRequest(): Promise<boolean> {
 export async function requireUser(): Promise<AccountUser> {
   const account = await getAccount();
   if (!account) redirect(`${BASE_PATH}/entrar`);
-  if (account.teamRole === "leitura" && (await isActionRequest())) redirect(`${APP_PATH}?somente-leitura=1`);
+  if (account.teamRole && account.teamRole !== "editor" && (await isActionRequest())) redirect(`${APP_PATH}?somente-leitura=1`);
   return account;
 }
 

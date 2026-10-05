@@ -21,6 +21,7 @@ export function TeamInviteForm() {
           <Select id="team-role" name="role" defaultValue="editor">
             <option value="editor">Editor</option>
             <option value="leitura">Só leitura</option>
+            <option value="contador">Contador (só leitura, relatórios e exportação)</option>
           </Select>
         </FormField>
       </div>

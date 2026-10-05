@@ -690,7 +690,7 @@ export const teamMembers = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     memberId: text("member_id").references(() => users.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: text("role", { enum: ["editor", "leitura"] })
+    role: text("role", { enum: ["editor", "leitura", "contador"] })
       .notNull()
       .default("editor"),
     /** Hash do convite (some quando aceito). */

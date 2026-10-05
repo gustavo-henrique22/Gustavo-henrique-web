@@ -583,3 +583,15 @@ test("coupon codes are normalized and trial windows are computed from today", as
   // Depois de pagar, a validade muda e deixa de ser teste.
   assert.equal(onTrial({ ...fields, planExpiresAt: "2099-01-01" }), false);
 });
+
+test("WhatsApp charge messages fit the moment and keep the payment link", async () => {
+  const { chargeMessage, whatsappLink } = await vite.ssrLoadModule("/lib/recebi/charge-message.ts");
+  const base = { clientName: "Joana Silva", number: 7, totalCents: 150000, link: "https://x.test/recebi/c/abc", ownerName: "Ana" };
+  const before = chargeMessage({ ...base, dueDate: "2026-10-10", today: "2026-10-05" });
+  assert.match(before, /^Olá, Joana! Segue a cobrança #0007/);
+  assert.match(before, /https:\/\/x\.test\/recebi\/c\/abc/);
+  assert.match(chargeMessage({ ...base, dueDate: "2026-10-05", today: "2026-10-05" }), /vence hoje/);
+  assert.match(chargeMessage({ ...base, dueDate: "2026-10-01", today: "2026-10-05" }), /venceu em 01\/10\/2026 \(4 dias atrás\)/);
+  assert.equal(whatsappLink("(11) 98765-4321", "oi"), "https://wa.me/5511987654321?text=oi");
+  assert.equal(whatsappLink(null, "oi"), "https://wa.me/?text=oi");
+});

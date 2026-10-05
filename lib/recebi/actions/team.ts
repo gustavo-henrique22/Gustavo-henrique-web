@@ -34,7 +34,8 @@ export async function inviteMember(_: ActionState, formData: FormData): Promise<
   if (!hasPro(owner)) return fail("A equipe faz parte do plano Pro.");
   if ((await getAccount())?.teamRole) return fail("Volte para a sua conta para convidar pessoas.");
   const email = normalizeEmail(text(formData, "email", 200));
-  const role: TeamRole = text(formData, "role", 20) === "leitura" ? "leitura" : "editor";
+  const roleInput = text(formData, "role", 20);
+  const role: TeamRole = roleInput === "leitura" || roleInput === "contador" ? roleInput : "editor";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Informe um e-mail válido.");
   if (email === owner.email) return fail("Esse é o seu próprio e-mail.");
   const team = await listTeam(owner.id);
@@ -78,7 +79,7 @@ export async function acceptTeamInvite(_: ActionState, formData: FormData): Prom
     href: TEAM_PATH,
   });
   await logSecurityEvent(found.invite.ownerId, "equipe-entrou", actor.email);
-  redirect(APP_PATH);
+  redirect(found.invite.role === "contador" ? `${APP_PATH}/relatorios` : APP_PATH);
 }
 
 /** Escolhe em qual conta trabalhar: "" = a própria. */
