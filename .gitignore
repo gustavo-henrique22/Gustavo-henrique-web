@@ -43,3 +43,11 @@ next-env.d.ts
 /work/
 /.vinext/
 .dev.vars
+
+# Recebi: cópias de segurança e arquivos de restauração têm dados reais — nunca vão para o Git
+/backups/
+*.json.enc
+restaurar*.sql
+recebi-backup-*
+recebi-meus-dados-*.json
+preview.log

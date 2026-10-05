@@ -10,6 +10,7 @@ import { completeLogin } from "@/lib/recebi/login";
 import { sendWelcomeEmail } from "@/lib/recebi/notifications";
 import { siteOrigin } from "@/lib/recebi/origin";
 import { applyReferral, REFERRAL_COOKIE } from "@/lib/recebi/referral";
+import { trialFields } from "@/lib/recebi/trial";
 import { startLoginChallenge, twoFactorEnabled } from "@/lib/recebi/two-factor";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
         googleSub: profile.sub,
         emailVerifiedAt: new Date().toISOString(),
         isAdmin: await isAdminEmail(profile.email),
+        ...trialFields(),
       });
       const referralCode = jar.get(REFERRAL_COOKIE)?.value;
       if (referralCode) {

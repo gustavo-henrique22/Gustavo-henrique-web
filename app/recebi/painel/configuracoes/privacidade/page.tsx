@@ -7,14 +7,16 @@ import { ActionForm } from "@/components/recebi/action-form";
 import { FormField } from "@/components/recebi/fields";
 import { SettingsSection } from "@/components/recebi/settings-section";
 import { deleteAccount } from "@/lib/recebi/actions/account";
-import { GOOGLE_ONLY_PASSWORD, requireUser } from "@/lib/recebi/auth";
-import { BASE_PATH } from "@/lib/recebi/config";
+import { GOOGLE_ONLY_PASSWORD, requireActor } from "@/lib/recebi/auth";
+import { APP_PATH, BASE_PATH } from "@/lib/recebi/config";
+import { confirmPath, hasRecentAuth } from "@/lib/recebi/reauth";
 
 export const metadata: Metadata = { title: "Privacidade" };
 
 export default async function PrivacySettingsPage() {
-  const user = await requireUser();
+  const user = await requireActor();
   const googleOnly = user.passwordHash === GOOGLE_ONLY_PASSWORD;
+  const confirmed = await hasRecentAuth();
 
   return (
     <>
@@ -28,11 +30,19 @@ export default async function PrivacySettingsPage() {
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />O arquivo é gerado na hora, só para você, em formato aberto (JSON). Guarde em
             local seguro: ele tem dados pessoais.
           </p>
-          <Button asChild className="w-fit">
-            <a href={`${BASE_PATH}/api/meus-dados`} download>
-              <Download /> Baixar meus dados
-            </a>
-          </Button>
+          {confirmed ? (
+            <Button asChild className="w-fit">
+              <a href={`${BASE_PATH}/api/meus-dados`} download>
+                <Download /> Baixar meus dados
+              </a>
+            </Button>
+          ) : (
+            <Button asChild className="w-fit">
+              <Link href={confirmPath(`${APP_PATH}/configuracoes/privacidade#meus-dados`)}>
+                <ShieldCheck /> Confirmar identidade para baixar
+              </Link>
+            </Button>
+          )}
         </div>
       </SettingsSection>
 

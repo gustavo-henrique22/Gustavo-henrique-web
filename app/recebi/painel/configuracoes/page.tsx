@@ -19,7 +19,7 @@ import {
   updateReminders,
   uploadLogo,
 } from "@/lib/recebi/actions/account";
-import { hasPro, requireUser } from "@/lib/recebi/auth";
+import { GOOGLE_ONLY_PASSWORD, hasPro, requireActor } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
 import { emailEnabled } from "@/lib/recebi/email";
 import { filesEnabled, logoUrlFor } from "@/lib/recebi/files";
@@ -27,8 +27,35 @@ import { normalizePixKey } from "@/lib/recebi/pix";
 
 export const metadata: Metadata = { title: "Configurações" };
 
+/** Campo pedido só quando a pessoa troca o e-mail ou a chave Pix (proteção contra quem pegou a sessão). */
+function SensitiveConfirmField({
+  id,
+  what,
+  user,
+}: {
+  id: string;
+  what: string;
+  user: { totpEnabledAt: string | null; passwordHash: string };
+}) {
+  if (user.totpEnabledAt) {
+    return (
+      <FormField id={id} label="Código do app autenticador" hint={`Só é pedido para trocar ${what}.`}>
+        <Input id={id} name="confirmCode" autoComplete="one-time-code" maxLength={20} placeholder="000000" />
+      </FormField>
+    );
+  }
+  if (user.passwordHash !== GOOGLE_ONLY_PASSWORD) {
+    return (
+      <FormField id={id} label="Senha atual" hint={`Só é pedida para trocar ${what}.`}>
+        <Input id={id} name="confirmPassword" type="password" autoComplete="current-password" />
+      </FormField>
+    );
+  }
+  return null;
+}
+
 export default async function SettingsPage() {
-  const user = await requireUser();
+  const user = await requireActor();
   const normalizedKey = normalizePixKey(user.pixKey);
   const logoUrl = logoUrlFor(user);
 
@@ -52,6 +79,7 @@ export default async function SettingsPage() {
             <FormField id="document" label="CPF ou CNPJ" hint="Opcional. Aparece nas cobranças.">
               <Input id="document" name="document" defaultValue={user.document} />
             </FormField>
+            {!user.isDemo ? <SensitiveConfirmField id="profile-confirm" what="o e-mail" user={user} /> : null}
           </div>
         </ActionForm>
       </SettingsSection>
@@ -81,6 +109,7 @@ export default async function SettingsPage() {
             <FormField id="city" label="Sua cidade">
               <Input id="city" name="city" defaultValue={user.city} placeholder="Ex.: São Paulo" />
             </FormField>
+            {user.pixKey && !user.isDemo ? <SensitiveConfirmField id="pix-confirm" what="a chave Pix" user={user} /> : null}
           </div>
         </ActionForm>
       </SettingsSection>
@@ -105,6 +134,9 @@ export default async function SettingsPage() {
             </FormField>
             <FormField id="annualLimit" label="Limite anual de faturamento" hint="MEI: R$ 81.000. Deixe vazio para não acompanhar.">
               <MoneyInput id="annualLimit" name="annualLimit" defaultCents={user.annualLimitCents || undefined} />
+            </FormField>
+            <FormField id="das" label="Valor do DAS (MEI)" hint="Usado na previsão dos relatórios. Vazio: valor médio do MEI de serviços.">
+              <MoneyInput id="das" name="das" defaultCents={user.dasCents || undefined} />
             </FormField>
           </div>
           <p className="text-xs text-muted-foreground">

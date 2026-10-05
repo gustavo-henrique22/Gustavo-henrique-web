@@ -11,7 +11,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         userAgent: "*",
         allow: "/",
         // Painel, links de cobrança/orçamento e APIs não devem aparecer em buscadores.
-        disallow: ["/recebi/painel", "/recebi/api/", "/recebi/c/", "/recebi/o/", "/recebi/redefinir-senha/"],
+        disallow: ["/recebi/painel", "/recebi/api/", "/recebi/c/", "/recebi/o/", "/recebi/portal/", "/recebi/redefinir-senha/"],
       },
     ],
     sitemap: `${origin}/sitemap.xml`,

@@ -4,7 +4,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { loginAttempts, passwordResets, users } from "@/db/schema";
+import { loginAttempts, passwordResets, users, type User } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
 import {
   createPasswordReset,
@@ -18,14 +18,16 @@ import {
   normalizeEmail,
   verifyPassword,
 } from "../auth";
+import { notify } from "../activity";
 import { APP_PATH, BASE_PATH } from "../config";
 import { emailEnabled } from "../email";
 import { verificationLink } from "../email-verification";
 import { completeLogin } from "../login";
-import { sendPasswordResetEmail, sendWelcomeEmail } from "../notifications";
+import { sendPasswordResetEmail, sendSecurityAlertEmail, sendWelcomeEmail } from "../notifications";
 import { siteOrigin } from "../origin";
 import { passwordProblem } from "../password-policy";
 import { takeRateLimit } from "../rate-limit";
+import { trialFields } from "../trial";
 import { applyReferral, REFERRAL_COOKIE } from "../referral";
 import { logSecurityEvent, requestMeta } from "../security";
 import { startLoginChallenge, twoFactorEnabled } from "../two-factor";
@@ -37,6 +39,25 @@ function isBot(formData: FormData): boolean {
   return !!text(formData, "website", 200);
 }
 const MAX_FAILURES = 8;
+const SUSPICIOUS_FAILURES = 5;
+
+async function alertSuspiciousAttempts(user: Pick<User, "id" | "name" | "email" | "isDemo">, attempts: number) {
+  await logSecurityEvent(user.id, "tentativas-suspeitas", `${attempts} tentativas`);
+  await notify(user.id, {
+    type: "seguranca",
+    title: "Muitas tentativas de entrar na sua conta",
+    body: "Alguém errou sua senha várias vezes. Ative a verificação em duas etapas para ficar protegido.",
+    href: `${APP_PATH}/configuracoes/seguranca#duas-etapas`,
+  });
+  await sendSecurityAlertEmail(user, {
+    subject: "Tentativas de entrar na sua conta do Recebi",
+    title: "Muitas tentativas de senha errada",
+    lines: [
+      `Alguém errou a senha da sua conta ${attempts} vezes nos últimos minutos. Bloqueamos novas tentativas por um tempo.`,
+      "Se foi você, tudo bem. Se não foi, ative a verificação em duas etapas ou uma chave de acesso: assim ninguém entra só com a senha.",
+    ],
+  });
+}
 const LOCK_MINUTES = 15;
 
 function safeNext(value: string): string {
@@ -73,6 +94,8 @@ export async function signUp(_: ActionState, formData: FormData): Promise<Action
     businessName,
     passwordHash: await hashPassword(password),
     isAdmin: await isAdminEmail(email),
+    // Teste grátis do Pro para toda conta nova.
+    ...trialFields(),
   });
   // Convite: código do formulário ou do cookie deixado pelo link /recebi/convite/<código>.
   const jar = await cookies();
@@ -113,7 +136,13 @@ export async function signIn(_: ActionState, formData: FormData): Promise<Action
   const valid = user ? await verifyPassword(password, user.passwordHash) : (await hashPassword(password), false);
   if (!user || !valid) {
     await db.insert(loginAttempts).values({ id: crypto.randomUUID(), email });
-    if (user && !user.isDemo) await logSecurityEvent(user.id, "login-falhou");
+    if (user && !user.isDemo) {
+      await logSecurityEvent(user.id, "login-falhou");
+      // Alguém errando a senha da conta várias vezes: avisa a pessoa (no máximo uma vez por hora).
+      if (failures + 1 >= SUSPICIOUS_FAILURES && (await takeRateLimit(`alerta-tentativas:${user.id}`, 1, 3_600_000))) {
+        await alertSuspiciousAttempts(user, failures + 1);
+      }
+    }
     if (user?.passwordHash === GOOGLE_ONLY_PASSWORD) return fail("Esta conta usa o login com Google. Clique em “Entrar com Google”.");
     return fail("E-mail ou senha incorretos.");
   }

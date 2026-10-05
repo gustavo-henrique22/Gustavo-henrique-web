@@ -4,8 +4,9 @@ import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
+import { users, type User } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
+import { lockLink } from "../account-lock";
 import {
   destroyOtherSessions,
   destroySession,
@@ -13,18 +14,21 @@ import {
   hasPro,
   hashPassword,
   normalizeEmail,
-  requireUser,
+  requireActor,
   verifyPassword,
 } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
+import { escapeHtml } from "../email";
 import { sendEmailVerification } from "../email-verification";
 import { LOGO_TYPES, removeFile, removeUserFiles, storeUpload } from "../files";
 import { parseMoney } from "../money";
 import { passwordProblem } from "../password-policy";
 import { takeRateLimit } from "../rate-limit";
-import { sendAccountDeletedEmail, sendPasswordChangedEmail } from "../notifications";
+import { hasRecentAuth } from "../reauth";
+import { sendAccountDeletedEmail, sendPasswordChangedEmail, sendSecurityAlertEmail } from "../notifications";
 import { logSecurityEvent } from "../security";
 import { sealUser } from "../sensitive";
+import { checkSecondFactor, twoFactorEnabled } from "../two-factor";
 
 function refresh() {
   revalidatePath(APP_PATH, "layout");
@@ -32,8 +36,27 @@ function refresh() {
 
 const DEMO_BLOCKED = "Na demonstração não dá para mudar isso. Crie sua conta grátis para usar de verdade.";
 
+/**
+ * Trocar o e-mail ou a chave Pix é o que um invasor faria primeiro (desviar pagamentos ou tomar a conta).
+ * Exige o código do app (se a verificação em duas etapas está ativa), senão a senha atual, senão identidade
+ * confirmada há pouco (contas só com Google). Devolve a mensagem de erro, ou null se pode seguir.
+ */
+async function confirmSensitiveChange(user: User, formData: FormData): Promise<string | null> {
+  if (!(await takeRateLimit(`troca-sensivel:${user.id}`, 10, 3_600_000))) return "Muitas tentativas. Tente de novo em uma hora.";
+  if (twoFactorEnabled(user)) {
+    if (await checkSecondFactor(user, text(formData, "confirmCode", 20))) return null;
+    await logSecurityEvent(user.id, "login-2fa-falhou", "Troca de e-mail ou chave Pix");
+    return "Para trocar o e-mail ou a chave Pix, digite o código atual do app autenticador.";
+  }
+  if (user.passwordHash !== GOOGLE_ONLY_PASSWORD) {
+    if (await verifyPassword(String(formData.get("confirmPassword") ?? ""), user.passwordHash)) return null;
+    return "Para trocar o e-mail ou a chave Pix, digite sua senha atual.";
+  }
+  return (await hasRecentAuth()) ? null : "Para trocar o e-mail ou a chave Pix, confirme sua identidade entrando de novo com o Google.";
+}
+
 export async function updateProfile(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const name = text(formData, "name", 120);
   const email = normalizeEmail(text(formData, "email", 200));
@@ -42,6 +65,8 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
 
   const db = getDb();
   if (email !== user.email) {
+    const blocked = await confirmSensitiveChange(user, formData);
+    if (blocked) return fail(blocked);
     const [taken] = await db
       .select({ id: users.id })
       .from(users)
@@ -65,28 +90,51 @@ export async function updateProfile(_: ActionState, formData: FormData): Promise
   if (email !== user.email) {
     await logSecurityEvent(user.id, "email-alterado", `${user.email} → ${email}`);
     await sendEmailVerification({ ...user, name, email, emailVerifiedAt: null });
+    // Aviso para o e-mail ANTIGO, com o botão de bloquear a conta.
+    await sendSecurityAlertEmail(user, {
+      subject: "O e-mail da sua conta do Recebi foi trocado",
+      title: "E-mail da conta trocado",
+      lines: [`O e-mail da sua conta foi trocado para <strong>${escapeHtml(email)}</strong>.`],
+      lockUrl: await lockLink(user.id),
+    });
   }
   refresh();
   return success("Perfil atualizado.");
 }
 
 export async function updatePaymentSettings(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const pixKey = text(formData, "pixKey", 100);
   const city = text(formData, "city", 60);
   if (pixKey && !city) return fail("Informe sua cidade. Ela é obrigatória no QR Code do Pix.");
+  const pixChanged = pixKey !== user.pixKey;
+  if (pixChanged && user.pixKey) {
+    if (user.isDemo) return fail(DEMO_BLOCKED);
+    const blocked = await confirmSensitiveChange(user, formData);
+    if (blocked) return fail(blocked);
+  }
   await getDb()
     .update(users)
     .set({ ...(await sealUser(user.id, { pixKey })), city })
     .where(eq(users.id, user.id));
   // Trocar a chave Pix desvia os pagamentos: fica registrado na atividade de segurança.
-  if (pixKey !== user.pixKey) await logSecurityEvent(user.id, "chave-pix-alterada");
+  if (pixChanged) {
+    await logSecurityEvent(user.id, "chave-pix-alterada");
+    if (user.pixKey) {
+      await sendSecurityAlertEmail(user, {
+        subject: "A chave Pix da sua conta do Recebi foi trocada",
+        title: "Chave Pix trocada",
+        lines: ["A chave Pix que aparece nas suas cobranças foi trocada. Os próximos pagamentos vão para a chave nova."],
+        lockUrl: await lockLink(user.id),
+      });
+    }
+  }
   refresh();
   return success("Dados de recebimento salvos.");
 }
 
 export async function updateFinanceSettings(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const goalInput = text(formData, "monthlyGoal", 30);
   const limitInput = text(formData, "annualLimit", 30);
   const taxInput = text(formData, "taxRate", 10).replace("%", "").replace(",", ".");
@@ -94,6 +142,9 @@ export async function updateFinanceSettings(_: ActionState, formData: FormData):
   const monthlyGoalCents = goalInput ? parseMoney(goalInput) : 0;
   const annualLimitCents = limitInput ? parseMoney(limitInput) : 0;
   const taxRate = taxInput ? Number(taxInput) : 0;
+  const dasInput = text(formData, "das", 30);
+  const dasCents = dasInput ? parseMoney(dasInput) : 0;
+  if (dasCents === null || dasCents < 0 || dasCents > 1_000_000) return fail("Valor do DAS inválido.");
 
   if (monthlyGoalCents === null || monthlyGoalCents < 0) return fail("Meta mensal inválida.");
   if (annualLimitCents === null || annualLimitCents < 0) return fail("Limite anual inválido.");
@@ -101,14 +152,14 @@ export async function updateFinanceSettings(_: ActionState, formData: FormData):
 
   await getDb()
     .update(users)
-    .set({ monthlyGoalCents, annualLimitCents, taxRateBp: Math.round(taxRate * 100) })
+    .set({ monthlyGoalCents, annualLimitCents, dasCents, taxRateBp: Math.round(taxRate * 100) })
     .where(eq(users.id, user.id));
   refresh();
   return success("Metas e impostos atualizados.");
 }
 
 export async function changePassword(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");
@@ -136,7 +187,7 @@ export async function changePassword(_: ActionState, formData: FormData): Promis
 }
 
 export async function deleteAccount(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   const password = String(formData.get("password") ?? "");
   if (text(formData, "confirm", 20).toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
@@ -150,7 +201,7 @@ export async function deleteAccount(_: ActionState, formData: FormData): Promise
 }
 
 export async function uploadLogo(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail(DEMO_BLOCKED);
   if (!hasPro(user)) return fail("A logo nas cobranças é um recurso do plano Pro.");
   const file = formData.get("logo");
@@ -165,7 +216,7 @@ export async function uploadLogo(_: ActionState, formData: FormData): Promise<Ac
 }
 
 export async function removeLogo(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   await getDb().update(users).set({ logoKey: null }).where(eq(users.id, user.id));
   await removeFile(user.logoKey);
   refresh();
@@ -173,7 +224,7 @@ export async function removeLogo(): Promise<ActionState> {
 }
 
 export async function updateReminders(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const enabled = text(formData, "autoReminders") === "on";
   await getDb().update(users).set({ autoReminders: enabled }).where(eq(users.id, user.id));
   refresh();
@@ -181,7 +232,7 @@ export async function updateReminders(_: ActionState, formData: FormData): Promi
 }
 
 export async function updateMonthlySummary(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const enabled = text(formData, "monthlySummary") === "on";
   await getDb().update(users).set({ monthlySummary: enabled }).where(eq(users.id, user.id));
   refresh();
@@ -189,7 +240,7 @@ export async function updateMonthlySummary(_: ActionState, formData: FormData): 
 }
 
 export async function updateHourlyRate(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   const input = text(formData, "hourlyRate", 30);
   const cents = input ? parseMoney(input) : 0;
   if (cents === null || cents < 0 || cents > 10_000_000) return fail("Valor da hora inválido.");
@@ -199,7 +250,7 @@ export async function updateHourlyRate(_: ActionState, formData: FormData): Prom
 }
 
 export async function dismissOnboarding(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   await getDb().update(users).set({ onboardingDismissedAt: new Date().toISOString() }).where(eq(users.id, user.id));
   refresh();
   return success("Guia escondido. Você encontra tudo no menu.");

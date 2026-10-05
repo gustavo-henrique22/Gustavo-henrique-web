@@ -4,11 +4,13 @@ import { RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/components/recebi/report-error";
 import { BASE_PATH } from "@/lib/recebi/config";
 
 export default function RecebiError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportError(error);
   }, [error]);
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-4 py-16 text-center">

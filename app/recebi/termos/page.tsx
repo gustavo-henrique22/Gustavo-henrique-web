@@ -53,6 +53,11 @@ export default function TermsPage() {
               Você pode desistir da compra em até 7 dias e receber o valor de volta (direito de arrependimento, art. 49 do Código de Defesa
               do Consumidor). Peça pela plataforma onde pagou ou fale com a gente.
             </li>
+            <li>
+              Contas novas ganham um teste grátis do Pro por tempo limitado, sem cobrança automática: ao final, a conta volta ao plano
+              Grátis se você não assinar.
+            </li>
+            <li>Cupons têm as regras e a validade informadas na oferta, são pessoais e podem ser usados uma vez por conta.</li>
             <li>Meses de Pro ganhos no “Indique e ganhe” não têm valor em dinheiro e podem ser cancelados em caso de fraude.</li>
             <li>Valores e limites podem mudar com aviso prévio de 30 dias.</li>
           </ul>
@@ -65,8 +70,8 @@ export default function TermsPage() {
               a orientação de um contador.
             </li>
             <li>
-              As respostas do assistente com IA e as sugestões de orçamento podem conter erros. Confira antes de usar; elas não são
-              consultoria financeira, contábil ou jurídica.
+              As respostas do assistente com IA, as sugestões de orçamento e os campos preenchidos pela foto do comprovante podem conter
+              erros. Confira antes de usar; elas não são consultoria financeira, contábil ou jurídica.
             </li>
           </ul>
         </section>
@@ -82,8 +87,20 @@ export default function TermsPage() {
               No aceite de um orçamento, o Recebi registra o nome digitado, a data, a hora e o IP como comprovante, que fica disponível para
               você.
             </li>
+            <li>
+              Contratos anexados aos orçamentos são escritos por você. O Recebi apenas guarda o texto e o registro do aceite eletrônico; não
+              revisa o conteúdo nem presta assessoria jurídica. Para contratos de valor alto, consulte um advogado.
+            </li>
+            <li>
+              O link do portal do cliente dá acesso às cobranças e orçamentos daquele cliente. Envie só para ele; se o link vazar, troque-o
+              na página do cliente.
+            </li>
             <li>Confira no seu banco se o Pix caiu antes de marcar uma cobrança como paga.</li>
             <li>Você é responsável pelo conteúdo da sua página pública (serviços, preços, textos e logo).</li>
+            <li>
+              Ao convidar pessoas para a sua equipe, você autoriza que elas vejam (e, como Editor, alterem) os dados da sua conta e responde
+              pelo que fizerem nela. Você pode remover o acesso a qualquer momento.
+            </li>
           </ul>
         </section>
 

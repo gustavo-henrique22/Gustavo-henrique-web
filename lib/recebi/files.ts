@@ -14,7 +14,7 @@ type R2Bucket = {
     prefix: string;
     cursor?: string;
     limit?: number;
-  }): Promise<{ objects: { key: string }[]; truncated: boolean; cursor?: string }>;
+  }): Promise<{ objects: { key: string; size: number }[]; truncated: boolean; cursor?: string }>;
 };
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -32,7 +32,11 @@ export function filesEnabled(): boolean {
 }
 
 /** Valida e guarda um arquivo enviado. Devolve a chave ou uma mensagem de erro. */
-export async function storeUpload(prefix: string, file: File, allowed: string[]): Promise<{ key: string; type: string } | { error: string }> {
+export async function storeUpload(
+  prefix: string,
+  file: File,
+  allowed: string[],
+): Promise<{ key: string; type: string } | { error: string }> {
   const store = bucket();
   if (!store) return { error: "O armazenamento de arquivos não está disponível." };
   if (file.size === 0) return { error: "O arquivo está vazio." };
@@ -46,6 +50,21 @@ export async function storeUpload(prefix: string, file: File, allowed: string[])
   const key = `${prefix}/${crypto.randomUUID()}.${extensionFor(type)}`;
   await store.put(key, data, { httpMetadata: { contentType: type } });
   return { key, type };
+}
+
+/** Guarda um arquivo gerado pelo próprio Recebi (ex.: cópia de segurança). */
+export async function putFile(key: string, data: string | ArrayBuffer, contentType: string): Promise<boolean> {
+  const store = bucket();
+  if (!store) return false;
+  await store.put(key, typeof data === "string" ? new TextEncoder().encode(data).buffer : data, { httpMetadata: { contentType } });
+  return true;
+}
+
+/** Arquivos com um prefixo (até 1.000). */
+export async function listFiles(prefix: string): Promise<{ key: string; size: number }[]> {
+  const store = bucket();
+  if (!store) return [];
+  return (await store.list({ prefix, limit: 1000 })).objects.map(({ key, size }) => ({ key, size }));
 }
 
 export async function readFile(key: string): Promise<R2Object | null> {

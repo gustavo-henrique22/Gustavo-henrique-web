@@ -6,8 +6,10 @@ import {
   CircleDollarSign,
   FileSignature,
   Landmark,
+  Lock,
   PiggyBank,
   Target,
+  Trophy,
   Wallet,
   WandSparkles,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import { StatCard } from "@/components/recebi/stat-card";
 import { NewTransactionButton } from "@/components/recebi/transaction-dialogs";
 import { aiEnabled } from "@/lib/recebi/ai";
 import { emailEnabled } from "@/lib/recebi/email";
+import { loadAchievements } from "@/lib/recebi/achievements";
 import { requireUser } from "@/lib/recebi/auth";
 import { cashForecast } from "@/lib/recebi/forecast";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -47,7 +50,11 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mes?: string; "bem-vindo"?: string }> }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string; "bem-vindo"?: string; "somente-leitura"?: string }>;
+}) {
   const user = await requireUser();
   const params = await searchParams;
   const month = isValidMonth(params.mes) ? params.mes : currentMonth();
@@ -71,12 +78,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ]);
 
   const projects = projectRows.map((r) => r.project);
+  // Conquistas: meses já fechados contam para a sequência de lucro.
+  const achievements = await loadAchievements(
+    user.id,
+    { monthlyProfit: series.slice(0, -1).map((m) => m.profit), goalCents: user.monthlyGoalCents, monthIncomeCents: totals.incomePaid },
+    { announce: month === currentMonth() && !user.teamRole && !user.isDemo },
+  );
+  const earnedCount = achievements.filter((a) => a.earned).length;
   const profit = totals.incomePaid - totals.expensePaid;
   const taxEstimate = Math.round((totals.incomePaid * user.taxRateBp) / 10_000);
   const freeCash = profit - taxEstimate;
   const goalPercent = user.monthlyGoalCents > 0 ? Math.round((totals.incomePaid / user.monthlyGoalCents) * 100) : null;
   const limitPercent = user.annualLimitCents > 0 ? Math.round((yearIncome / user.annualLimitCents) * 100) : null;
-  const firstName = user.name.trim().split(/\s+/)[0];
+  const firstName = (user.actorName ?? user.name).trim().split(/\s+/)[0];
   const previous = series[series.length - 2];
   const prevLabel = `vs ${monthShortLabel(previous.month).split("/")[0]}`;
   const change = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
@@ -97,6 +111,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </>
         }
       />
+      {params["somente-leitura"] ? (
+        <p role="alert" className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
+          Seu acesso a esta conta é só de leitura. Peça ao dono para mudar seu papel para Editor.
+        </p>
+      ) : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
         <NewTransactionButton type="receita" clients={clientsList} projects={projects} label="Nova receita" />
@@ -257,6 +276,39 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <ForecastCard months={forecast.months} avgIncome={forecast.avgIncome} />
         </div>
       ) : null}
+
+      <section aria-labelledby="conquistas-title" className="mt-4 rounded-2xl border bg-card p-5 shadow-xs">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 id="conquistas-title" className="flex items-center gap-2 font-bold">
+            <Trophy className="size-4" aria-hidden /> Conquistas
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            {earnedCount} de {achievements.length}
+          </span>
+        </div>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {achievements.map((a) => (
+            <li
+              key={a.key}
+              className={cn(
+                "rounded-xl border px-3 py-2.5 text-sm",
+                a.earned ? "border-[#c9ff3c] bg-[#c9ff3c]/15" : "border-dashed text-muted-foreground",
+              )}
+            >
+              <p className="flex items-center gap-1.5 font-semibold">
+                {a.earned ? (
+                  <Trophy className="size-3.5 text-[#7da800] dark:text-brand" aria-hidden />
+                ) : (
+                  <Lock className="size-3.5" aria-hidden />
+                )}
+                {a.title}
+                <span className="sr-only">{a.earned ? "(conquistada)" : "(ainda não)"}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{a.description}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <section className="rounded-2xl border bg-card p-5 shadow-xs lg:col-span-2" aria-labelledby="agenda-title">

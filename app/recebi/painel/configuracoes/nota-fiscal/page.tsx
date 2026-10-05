@@ -8,7 +8,7 @@ import { FormField, Select } from "@/components/recebi/fields";
 import { ProNotice } from "@/components/recebi/pro-notice";
 import { SettingsSection } from "@/components/recebi/settings-section";
 import { saveNfseSettings, testNfseConnection } from "@/lib/recebi/actions/nfse";
-import { hasPro, requireUser } from "@/lib/recebi/auth";
+import { hasPro, requireActor } from "@/lib/recebi/auth";
 import { getNfseSettings, nfseMissing, nfseToken } from "@/lib/recebi/nfse";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ function formatCnpj(value: string) {
 }
 
 export default async function InvoiceTaxSettingsPage() {
-  const user = await requireUser();
+  const user = await requireActor();
 
   if (!hasPro(user)) {
     return (

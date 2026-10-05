@@ -28,22 +28,38 @@ export const SECURITY_EVENT_LABELS: Record<string, string> = {
   "nfse-configurada": "Nota fiscal configurada",
   "chave-pix-alterada": "Chave Pix alterada",
   "email-alterado": "E-mail da conta alterado",
+  "login-passkey": "Entrou com chave de acesso",
+  "login-pais-novo": "Entrou de outro país",
+  "tentativas-suspeitas": "Muitas tentativas de senha errada",
+  "passkey-adicionada": "Chave de acesso adicionada",
+  "passkey-removida": "Chave de acesso removida",
+  "identidade-confirmada": "Identidade confirmada",
+  "conta-bloqueada": "Conta bloqueada pelo link do e-mail",
+  "equipe-convite": "Convite para a equipe enviado",
+  "equipe-entrou": "Nova pessoa na equipe",
+  "equipe-removido": "Pessoa removida da equipe",
 };
 
-export async function requestMeta(): Promise<{ ip: string; userAgent: string }> {
+export async function requestMeta(): Promise<{ ip: string; userAgent: string; country: string }> {
   try {
     const h = await headers();
     const ip = h.get("cf-connecting-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-    return { ip: ip.slice(0, 64), userAgent: (h.get("user-agent") ?? "").slice(0, 300) };
+    // País do visitante, informado pela Cloudflare (XX/T1 = desconhecido ou Tor).
+    const country = (h.get("cf-ipcountry") ?? "").toUpperCase();
+    return {
+      ip: ip.slice(0, 64),
+      userAgent: (h.get("user-agent") ?? "").slice(0, 300),
+      country: /^[A-Z]{2}$/.test(country) && country !== "XX" ? country : "",
+    };
   } catch {
-    return { ip: "", userAgent: "" };
+    return { ip: "", userAgent: "", country: "" };
   }
 }
 
 export async function logSecurityEvent(userId: string, type: string, detail = "") {
-  const meta = await requestMeta();
+  const { ip, userAgent } = await requestMeta();
   const db = getDb();
-  await db.insert(securityEvents).values({ id: crypto.randomUUID(), userId, type, detail: detail.slice(0, 300), ...meta });
+  await db.insert(securityEvents).values({ id: crypto.randomUUID(), userId, type, detail: detail.slice(0, 300), ip, userAgent });
   // Guardamos só o último ano.
   const yearAgo = new Date(Date.now() - 365 * 86_400_000).toISOString().replace("T", " ").slice(0, 19);
   await db.delete(securityEvents).where(and(eq(securityEvents.userId, userId), lt(securityEvents.createdAt, yearAgo)));

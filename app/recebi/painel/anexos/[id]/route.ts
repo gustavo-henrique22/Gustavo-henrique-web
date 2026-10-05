@@ -1,14 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { transactions } from "@/db/schema";
-import { getCurrentUser } from "@/lib/recebi/auth";
+import { getAccount } from "@/lib/recebi/auth";
 import { readFile } from "@/lib/recebi/files";
 
 export const dynamic = "force-dynamic";
 
 /** Abre o comprovante de um lançamento (só para o dono). */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await getAccount();
   if (!user) return new Response("Faça login para ver o comprovante.", { status: 401 });
   const { id } = await params;
   const [row] = await getDb()

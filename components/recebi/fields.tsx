@@ -68,6 +68,7 @@ export function TransactionFields({
   transaction,
   defaultClientId,
   attachments = "hidden",
+  initial,
 }: {
   type: "receita" | "despesa";
   clients: Pick<Client, "id" | "name">[];
@@ -76,6 +77,8 @@ export function TransactionFields({
   defaultClientId?: string;
   /** "enabled": pode anexar; "locked": mostra o recurso do Pro; "hidden": sem armazenamento. */
   attachments?: "enabled" | "locked" | "hidden";
+  /** Valores sugeridos para um lançamento novo (ex.: lidos da foto do comprovante). */
+  initial?: { description?: string; amountCents?: number; date?: string; category?: string };
 }) {
   const categories = categoriesFor(type);
   const isEdit = !!transaction;
@@ -89,21 +92,28 @@ export function TransactionFields({
           name="description"
           required
           maxLength={160}
-          defaultValue={transaction?.description}
+          defaultValue={transaction?.description ?? initial?.description}
           placeholder={type === "receita" ? "Ex.: Site institucional — Padaria Sol" : "Ex.: Assinatura do Figma"}
         />
       </FormField>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField id="amount" label="Valor">
-          <MoneyInput id="amount" name="amount" required defaultCents={transaction?.amountCents} />
+          <MoneyInput id="amount" name="amount" required defaultCents={transaction?.amountCents ?? initial?.amountCents} />
         </FormField>
         <FormField id="date" label={type === "receita" ? "Data do recebimento" : "Data do pagamento"}>
-          <Input id="date" name="date" type="date" required defaultValue={transaction?.date ?? todayISO()} />
+          <Input id="date" name="date" type="date" required defaultValue={transaction?.date ?? initial?.date ?? todayISO()} />
         </FormField>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField id="category" label="Categoria">
-          <Select id="category" name="category" required defaultValue={transaction?.category ?? categories[0]}>
+          <Select
+            id="category"
+            name="category"
+            required
+            defaultValue={
+              transaction?.category ?? (initial?.category && categories.includes(initial.category) ? initial.category : categories[0])
+            }
+          >
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}

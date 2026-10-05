@@ -13,6 +13,7 @@ import {
   Sparkles,
   Timer,
   Users,
+  UsersRound,
   WandSparkles,
 } from "lucide-react";
 import { APP_PATH } from "@/lib/recebi/config";
@@ -34,6 +35,7 @@ export const MAIN_NAV = [
 export const ACCOUNT_NAV = [
   { href: `${APP_PATH}/configuracoes`, label: "Configurações", icon: Settings },
   { href: `${APP_PATH}/plano`, label: "Plano", icon: Sparkles },
+  { href: `${APP_PATH}/equipe`, label: "Equipe", icon: UsersRound },
   { href: `${APP_PATH}/indique`, label: "Indique e ganhe", icon: Gift },
 ];
 

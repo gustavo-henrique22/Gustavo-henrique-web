@@ -12,7 +12,17 @@ import { SubmitButton } from "./submit-button";
 import { useActionForm } from "./use-action-form";
 
 /** Botões para o cliente aprovar ou recusar o orçamento pelo link. */
-export function QuoteDecision({ token, totalCents, ownerName }: { token: string; totalCents: number; ownerName: string }) {
+export function QuoteDecision({
+  token,
+  totalCents,
+  ownerName,
+  hasContract = false,
+}: {
+  token: string;
+  totalCents: number;
+  ownerName: string;
+  hasContract?: boolean;
+}) {
   const approve = useActionForm(approveQuoteByClient);
   const reject = useActionForm(rejectQuoteByClient);
   const [rejecting, setRejecting] = useState(false);
@@ -58,7 +68,11 @@ export function QuoteDecision({ token, totalCents, ownerName }: { token: string;
           </div>
           <label className="flex items-start gap-2 text-sm text-muted-foreground">
             <input type="checkbox" name="accept" required className="mt-0.5 size-4 accent-[var(--primary)]" />
-            <span>Li e aceito os itens, valores e condições deste orçamento.</span>
+            <span>
+              {hasContract
+                ? "Li e aceito os itens, valores, condições e o contrato deste orçamento."
+                : "Li e aceito os itens, valores e condições deste orçamento."}
+            </span>
           </label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <SubmitButton

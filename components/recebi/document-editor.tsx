@@ -36,6 +36,8 @@ export type DocumentDraft = {
   items: { description: string; quantity: number; unitPriceCents: number }[];
   /** Pedido da página pública que originou o orçamento. */
   requestId?: string;
+  /** Só orçamentos: contrato que o cliente aceita junto (recurso Pro). */
+  contract?: { text: string; pro: boolean };
 };
 
 const COPY = {
@@ -282,6 +284,37 @@ export function DocumentEditor({
             placeholder={copy.notesPlaceholder}
           />
         </section>
+
+        {draft.contract ? (
+          <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-xs">
+            <Label htmlFor="contract">
+              Contrato <span className="font-normal text-muted-foreground">(opcional, o cliente aceita junto com o orçamento)</span>
+            </Label>
+            {draft.contract.pro ? (
+              <>
+                <Textarea
+                  id="contract"
+                  name="contract"
+                  rows={8}
+                  defaultValue={draft.contract.text}
+                  maxLength={20000}
+                  placeholder="Ex.: 1. Objeto: ... 2. Prazo: ... 3. Pagamento: ... 4. Direitos de uso: ... 5. Cancelamento: ..."
+                />
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" name="saveContractTemplate" /> Salvar como meu modelo para os próximos orçamentos
+                </label>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Anexe um contrato com aceite eletrônico (nome, data e IP ficam registrados). Recurso do{" "}
+                <a href="/recebi/painel/plano" className="font-semibold underline">
+                  plano Pro
+                </a>
+                .
+              </p>
+            )}
+          </section>
+        ) : null}
       </div>
 
       <aside className="grid content-start gap-4 lg:sticky lg:top-6">

@@ -1,4 +1,4 @@
-import { FileText, Plus, Repeat } from "lucide-react";
+import { FileText, MessageCircle, Plus, Repeat } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,12 @@ import { PageHeader } from "@/components/recebi/page-header";
 import { QuickChargeButton } from "@/components/recebi/quick-charge";
 import { StatCard } from "@/components/recebi/stat-card";
 import { hasPro, requireUser } from "@/lib/recebi/auth";
-import { APP_PATH, FREE_LIMITS } from "@/lib/recebi/config";
+import { chargeMessage, whatsappLink } from "@/lib/recebi/charge-message";
+import { APP_PATH, BASE_PATH, FREE_LIMITS } from "@/lib/recebi/config";
 import { countInvoicesInMonth, invoiceStats, listClients, listInvoices } from "@/lib/recebi/data";
-import { currentMonth, formatDate } from "@/lib/recebi/dates";
+import { currentMonth, formatDate, todayISO } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
+import { siteOrigin } from "@/lib/recebi/origin";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Cobranças" };
@@ -35,6 +37,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
     countInvoicesInMonth(user.id, currentMonth()),
   ]);
   const pro = hasPro(user);
+  const origin = await siteOrigin();
+  const today = todayISO();
+  const phones = new Map(clientOptions.map((c) => [c.id, c.phone]));
+  const ownerName = user.businessName || user.name;
 
   return (
     <>
@@ -108,10 +114,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
       ) : (
         <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
           {rows.map(({ invoice, clientName }) => (
-            <li key={invoice.id}>
+            <li key={invoice.id} className="flex items-center hover:bg-muted/50">
               <Link
                 href={`${APP_PATH}/cobrancas/${invoice.id}`}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5 hover:bg-muted/50"
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5"
               >
                 <span className="w-14 font-bold tabular">#{String(invoice.number).padStart(4, "0")}</span>
                 <span className="min-w-0 flex-1">
@@ -123,6 +129,34 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                 <InvoiceStatusBadge status={invoice.status} dueDate={invoice.dueDate} />
                 <span className="w-32 text-right font-bold tabular">{formatMoney(invoice.totalCents)}</span>
               </Link>
+              {invoice.status === "enviada" ? (
+                <a
+                  href={whatsappLink(
+                    invoice.clientId ? phones.get(invoice.clientId) : null,
+                    chargeMessage({
+                      clientName,
+                      number: invoice.number,
+                      totalCents: invoice.totalCents,
+                      dueDate: invoice.dueDate,
+                      link: `${origin}${BASE_PATH}/c/${invoice.publicToken}`,
+                      ownerName,
+                      today,
+                    }),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Cobrar ${clientName ?? "cliente"} pelo WhatsApp`}
+                  title="Cobrar pelo WhatsApp"
+                  className={cn(
+                    "mr-3 grid size-9 shrink-0 place-items-center rounded-lg border transition hover:bg-background",
+                    invoice.dueDate < today ? "border-destructive/40 text-destructive" : "text-muted-foreground",
+                  )}
+                >
+                  <MessageCircle className="size-4" aria-hidden />
+                </a>
+              ) : (
+                <span className="mr-3 size-9 shrink-0" aria-hidden />
+              )}
             </li>
           ))}
         </ul>

@@ -42,6 +42,8 @@ function pick<T extends string>(value: string, options: readonly T[], fallback: 
 export async function saveNfseSettings(_: ActionState, formData: FormData): Promise<ActionState> {
   const { user, error } = await requireProUser();
   if (error) return fail(error);
+  // Token e dados fiscais são do dono da conta: membros da equipe não mexem.
+  if (user.teamRole) return fail("Só o dono da conta configura a nota fiscal.");
 
   const layout = pick(text(formData, "layout", 20), ["nacional", "municipal"] as const, "nacional");
   const environment = pick(text(formData, "environment", 20), ["homologacao", "producao"] as const, "homologacao");

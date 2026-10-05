@@ -33,7 +33,7 @@ import { logoUrlFor } from "@/lib/recebi/files";
 import { formatDate, todayISO } from "@/lib/recebi/dates";
 import { formatMoney } from "@/lib/recebi/money";
 import { siteOrigin } from "@/lib/recebi/origin";
-import { whatsappNumber } from "@/lib/recebi/phone";
+import { chargeMessage, whatsappLink } from "@/lib/recebi/charge-message";
 
 export const metadata: Metadata = { title: "Cobrança" };
 
@@ -57,13 +57,16 @@ export default async function InvoicePage({
   const number = String(invoice.number).padStart(4, "0");
   const link = `${await siteOrigin()}${BASE_PATH}/c/${invoice.publicToken}`;
   const ownerName = user.businessName || user.name;
-  const firstName = client?.name.split(" ")[0] ?? "";
-  const message =
-    `Olá${firstName ? `, ${firstName}` : ""}! Segue a cobrança #${number} de ${formatMoney(invoice.totalCents)}, ` +
-    `com vencimento em ${formatDate(invoice.dueDate)}. Você pode pagar por Pix pelo link: ${link}\n\nObrigado! ${ownerName}`;
-  const whatsappHref = client?.phone
-    ? `https://wa.me/${whatsappNumber(client.phone)}?text=${encodeURIComponent(message)}`
-    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const message = chargeMessage({
+    clientName: client?.name ?? null,
+    number: invoice.number,
+    totalCents: invoice.totalCents,
+    dueDate: invoice.dueDate,
+    link,
+    ownerName,
+    today: todayISO(),
+  });
+  const whatsappHref = whatsappLink(client?.phone, message);
   const mailHref = client?.email
     ? `mailto:${client.email}?subject=${encodeURIComponent(`Cobrança #${number} — ${ownerName}`)}&body=${encodeURIComponent(message)}`
     : null;

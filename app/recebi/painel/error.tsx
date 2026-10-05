@@ -4,12 +4,14 @@ import { RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/components/recebi/report-error";
 import { APP_PATH } from "@/lib/recebi/config";
 
 /** Erro dentro do painel: mantém o menu e oferece tentar de novo. */
 export default function PainelError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportError(error);
   }, [error]);
   return (
     <div className="grid place-items-center rounded-2xl border border-dashed bg-card px-6 py-20 text-center">

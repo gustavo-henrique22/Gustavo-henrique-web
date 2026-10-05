@@ -8,7 +8,7 @@ import { Logo } from "@/components/recebi/logo";
 import { PixBox } from "@/components/recebi/pix-box";
 import { PrintButton } from "@/components/recebi/print-button";
 import { recordView } from "@/lib/recebi/activity";
-import { getCurrentUser, hasPro } from "@/lib/recebi/auth";
+import { getAccount, hasPro } from "@/lib/recebi/auth";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { getPublicInvoice } from "@/lib/recebi/data";
 import { formatDate } from "@/lib/recebi/dates";
@@ -39,7 +39,7 @@ export default async function PublicInvoicePage({
   const data = await getPublicInvoice(token);
   if (!data) notFound();
   const { invoice, items, client, owner } = data;
-  await recordView("cobranca", invoice, (await getCurrentUser())?.id ?? null, client?.name ?? null);
+  await recordView("cobranca", invoice, (await getAccount())?.id ?? null, client?.name ?? null);
   const ownerName = owner.businessName || owner.name;
 
   return (

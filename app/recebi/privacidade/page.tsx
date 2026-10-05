@@ -15,7 +15,7 @@ const PROCESSORS: [string, string][] = [
   ["Google", "Login com Google, apenas se você escolher entrar assim."],
   [
     "Anthropic (Claude)",
-    "Assistente com IA: quando você faz uma pergunta, enviamos o texto dela e um resumo numérico das suas finanças. Esses dados não são usados para treinar a IA.",
+    "Assistente com IA: quando você faz uma pergunta, enviamos o texto dela e um resumo numérico das suas finanças. Na despesa por foto, enviamos a imagem do comprovante para preencher os campos. Esses dados não são usados para treinar a IA.",
   ],
   ["Focus NFe", "Emissão de nota fiscal de serviço, apenas se você ativar e conectar a sua conta."],
   [
@@ -28,6 +28,7 @@ const COOKIES: [string, string][] = [
   ["recebi_session", "Mantém você conectado. Essencial."],
   ["recebi_device", "Reconhece o aparelho para avisar sobre logins em aparelhos novos. Essencial (segurança)."],
   ["recebi_2fa", "Guarda por alguns minutos o login que aguarda o código da verificação em duas etapas. Essencial."],
+  ["recebi_pk", "Guarda por alguns minutos o desafio de segurança de uma chave de acesso (digital ou rosto). Essencial."],
   ["recebi_google_state", "Protege o login com Google contra fraudes. Essencial, dura minutos."],
   ["recebi_ref", "Lembra o código de indicação de quem convidou você, por 30 dias."],
 ];
@@ -141,7 +142,10 @@ export default function PrivacyPage() {
           <h2>7. Por quanto tempo guardamos</h2>
           <ul>
             <li>Enquanto sua conta existir. Ao excluir a conta, apagamos seus dados e arquivos na hora.</li>
-            <li>As cópias de segurança automáticas do banco de dados se renovam em até 30 dias.</li>
+            <li>
+              As cópias de segurança do banco de dados são criptografadas e guardadas por 7 dias; as cópias automáticas da hospedagem se
+              renovam em até 30 dias.
+            </li>
             <li>O registro de atividades de segurança é guardado por até 1 ano.</li>
             <li>
               Os avisos de pagamento do plano Pro enviados pela Kiwify ou pela Shopify (e-mail, valor e situação) ficam guardados por até 5

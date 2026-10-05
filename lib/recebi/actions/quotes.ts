@@ -4,7 +4,7 @@ import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { clients, projects, quoteItems, quoteRequests, quotes } from "@/db/schema";
+import { clients, projects, quoteItems, quoteRequests, quotes, users } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
 import { hasPro, requireUser } from "../auth";
 import { APP_PATH, BASE_PATH, FREE_LIMITS } from "../config";
@@ -47,6 +47,8 @@ export async function saveQuote(_: ActionState, formData: FormData): Promise<Act
   const issueDate = text(formData, "issueDate", 10);
   const validUntil = text(formData, "validUntil", 10);
   const notes = text(formData, "notes", 2000);
+  // Contrato com aceite eletrônico: recurso Pro.
+  const contractText = hasPro(user) ? text(formData, "contract", 20000) : undefined;
   const discountInput = text(formData, "discount", 30);
   const discountCents = discountInput ? parseMoney(discountInput) : 0;
   const termInput = Number(text(formData, "paymentTermDays", 3));
@@ -91,7 +93,11 @@ export async function saveQuote(_: ActionState, formData: FormData): Promise<Act
     notes,
     discountCents,
     totalCents,
+    ...(contractText !== undefined ? { contractText } : {}),
   };
+  if (contractText !== undefined && formData.get("saveContractTemplate") === "on") {
+    await db.update(users).set({ contractTemplate: contractText }).where(eq(users.id, user.id));
+  }
 
   let quoteId = id;
   let previousStatus: string | null = null;
@@ -322,6 +328,7 @@ export async function duplicateQuote(_: ActionState, formData: FormData): Promis
     discountCents: quote.discountCents,
     totalCents: quote.totalCents,
     notes: quote.notes,
+    contractText: quote.contractText,
   });
   await insertQuoteItems(newId, items);
   await logEvent(user.id, "orcamento", newId, "criado", `Cópia do orçamento #${String(quote.number).padStart(4, "0")}`);

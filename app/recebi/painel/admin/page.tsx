@@ -14,11 +14,18 @@ import { StatCard } from "@/components/recebi/stat-card";
 import { getDb } from "@/db";
 import { payments, users } from "@/db/schema";
 import { adminAssignPayment, setUserPlan } from "@/lib/recebi/actions/admin";
+import { createCoupon, toggleCoupon } from "@/lib/recebi/actions/coupons";
+import { churnReport } from "@/lib/recebi/churn";
+import { recentErrors } from "@/lib/recebi/error-log";
+import { listCoupons } from "@/lib/recebi/coupons";
+import { FormField } from "@/components/recebi/fields";
 import { businessMetrics } from "@/lib/recebi/admin-metrics";
 import { aiEnabled } from "@/lib/recebi/ai";
-import { hasPro, requireAdmin } from "@/lib/recebi/auth";
+import { ADMIN_ACTION_LABELS, listAdminAudit, requireAdminPage } from "@/lib/recebi/admin-guard";
+import { hasPro } from "@/lib/recebi/auth";
 import { APP_PATH } from "@/lib/recebi/config";
-import { formatDate } from "@/lib/recebi/dates";
+import { BACKUP_DAYS, backupsEnabled, listBackups } from "@/lib/recebi/backup";
+import { formatDate, formatDateTime } from "@/lib/recebi/dates";
 import { billingEnabled } from "@/lib/recebi/billing";
 import { emailEnabled, readEnv } from "@/lib/recebi/email";
 import { encryptionEnabled } from "@/lib/recebi/encryption";
@@ -31,12 +38,13 @@ import { formatMoney } from "@/lib/recebi/money";
 export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireAdmin();
+  // Admin: verificação em duas etapas obrigatória e identidade confirmada há poucos minutos.
+  await requireAdminPage(`${APP_PATH}/admin`);
   const q = (await searchParams).q?.trim().slice(0, 100) ?? "";
   const db = getDb();
   const term = `%${q.replace(/[%_]/g, "")}%`;
 
-  const [list, recentPayments, metrics, unmatched] = await Promise.all([
+  const [list, recentPayments, metrics, unmatched, audit, backups, churn, couponList, errors] = await Promise.all([
     db
       .select()
       .from(users)
@@ -51,6 +59,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       .limit(10),
     businessMetrics(),
     unmatchedPayments(),
+    listAdminAudit(30),
+    listBackups(),
+    churnReport(),
+    listCoupons(),
+    recentErrors(20),
   ]);
 
   const integrations = [
@@ -201,6 +214,182 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </section>
       </section>
 
+      <section aria-labelledby="cancelamentos" className="mt-4 rounded-2xl border bg-card p-5 shadow-xs">
+        <h2 id="cancelamentos" className="font-bold">
+          Cancelamentos e quem não renovou
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Pro vencido sem renovação (90 dias), estornos e cancelamentos avisados pela plataforma (30 dias) e conversão do teste grátis.
+        </p>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <dt className="text-xs text-muted-foreground">Pagantes que saíram (30 dias)</dt>
+            <dd className="mt-1 text-lg font-bold tabular-nums">{churn.lost30}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Receita mensal perdida (30 dias)</dt>
+            <dd className="mt-1 text-lg font-bold tabular-nums text-expense">{formatMoney(churn.lostMrr30)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Estornos · cancelamentos (30 dias)</dt>
+            <dd className="mt-1 text-lg font-bold tabular-nums">
+              {churn.refunds30} · {churn.cancellations30}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Teste grátis → pagante (90 dias)</dt>
+            <dd className="mt-1 text-lg font-bold tabular-nums">
+              {churn.trials.rate}%{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                ({churn.trials.converted} de {churn.trials.ended})
+              </span>
+            </dd>
+          </div>
+        </dl>
+        {churn.people.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Pessoa</th>
+                  <th className="py-2 pr-3 font-medium">Venceu em</th>
+                  <th className="py-2 pr-3 font-medium">Tipo</th>
+                  <th className="py-2 text-right font-medium">Pagava por mês</th>
+                </tr>
+              </thead>
+              <tbody>
+                {churn.people.slice(0, 30).map((p) => (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="block text-xs text-muted-foreground">{p.email}</span>
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">{formatDate(p.expiredAt)}</td>
+                    <td className="py-2 pr-3">
+                      <Badge variant={p.paying ? "destructive" : "secondary"}>
+                        {p.paying ? "Assinante" : p.trialOnly ? "Teste grátis" : "Cortesia"}
+                      </Badge>
+                    </td>
+                    <td className="py-2 text-right tabular-nums">{p.monthlyCents ? formatMoney(p.monthlyCents) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">Ninguém deixou de renovar nos últimos 90 dias. 🎉</p>
+        )}
+      </section>
+
+      <section aria-labelledby="erros" className="mt-4 rounded-2xl border bg-card p-5 shadow-xs">
+        <h2 id="erros" className="font-bold">
+          Erros do site
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          {errors.last24h} nas últimas 24 horas. Telas que quebraram no navegador e tarefas automáticas que falharam (guardados por 30
+          dias).
+        </p>
+        {errors.rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum erro registrado. 🎉</p>
+        ) : (
+          <ul className="grid gap-2 text-sm">
+            {errors.rows.map((e) => (
+              <li key={e.id} className="rounded-lg border px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant={e.source === "servidor" ? "destructive" : "secondary"}>
+                    {e.source === "servidor" ? "Servidor" : "Navegador"}
+                  </Badge>
+                  <span>{formatDateTime(e.createdAt)}</span>
+                  {e.path ? <span className="font-mono">{e.path}</span> : null}
+                  {e.digest ? <span className="font-mono">código {e.digest}</span> : null}
+                </div>
+                <p className="mt-1 font-mono text-xs break-all">{e.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="cupons" className="mt-4 grid gap-4 rounded-2xl border bg-card p-5 shadow-xs lg:grid-cols-[320px_1fr]">
+        <div>
+          <h2 id="cupons" className="font-bold">
+            Cupons
+          </h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            “Dias de Pro” libera o Pro na hora. “Desconto” vai no link de pagamento: crie o mesmo código na Kiwify/Shopify. Marque “volta”
+            para usar no e-mail de quem não renovou.
+          </p>
+          <ActionForm action={createCoupon} submitLabel="Criar cupom" resetOnSuccess>
+            <div className="grid gap-3">
+              <FormField id="coupon-code" label="Código">
+                <Input id="coupon-code" name="code" required maxLength={32} className="uppercase" placeholder="VOLTA30" />
+              </FormField>
+              <FormField id="coupon-kind" label="Tipo">
+                <select id="coupon-kind" name="kind" className="h-9 rounded-md border bg-background px-3 text-sm">
+                  <option value="dias">Dias de Pro grátis</option>
+                  <option value="desconto">Desconto no pagamento</option>
+                </select>
+              </FormField>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField id="coupon-days" label="Dias (se for dias)">
+                  <Input id="coupon-days" name="days" type="number" min={0} max={366} defaultValue={30} />
+                </FormField>
+                <FormField id="coupon-max" label="Limite de usos (0 = sem)">
+                  <Input id="coupon-max" name="maxUses" type="number" min={0} defaultValue={0} />
+                </FormField>
+              </div>
+              <FormField id="coupon-exp" label="Válido até (opcional)">
+                <Input id="coupon-exp" name="expiresAt" type="date" />
+              </FormField>
+              <FormField id="coupon-desc" label="Descrição (opcional)">
+                <Input id="coupon-desc" name="description" maxLength={120} placeholder="20% no primeiro mês" />
+              </FormField>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="winback" /> Usar no e-mail “sentimos sua falta”
+              </label>
+            </div>
+          </ActionForm>
+        </div>
+        <div className="overflow-x-auto">
+          {couponList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum cupom ainda.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Código</th>
+                  <th className="py-2 pr-3 font-medium">Tipo</th>
+                  <th className="py-2 pr-3 font-medium">Usos</th>
+                  <th className="py-2 pr-3 font-medium">Validade</th>
+                  <th className="py-2 text-right font-medium">Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {couponList.map((c) => (
+                  <tr key={c.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3 font-mono font-semibold">
+                      {c.code}
+                      {c.winback ? <span className="ml-1 text-xs font-normal text-muted-foreground">(volta)</span> : null}
+                    </td>
+                    <td className="py-2 pr-3">{c.kind === "dias" ? `${c.days} dias de Pro` : c.description || "Desconto"}</td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {c.uses}
+                      {c.maxUses ? ` de ${c.maxUses}` : ""}
+                    </td>
+                    <td className="py-2 pr-3">{c.expiresAt ? formatDate(c.expiresAt) : "Sem prazo"}</td>
+                    <td className="py-2 text-right">
+                      <ActionButton action={toggleCoupon} fields={{ id: c.id, active: c.active ? "0" : "1" }} size="sm" variant="outline">
+                        {c.active ? "Desativar" : "Ativar"}
+                      </ActionButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border bg-card p-5 shadow-xs">
           <h2 className="font-bold">Integrações</h2>
@@ -347,6 +536,58 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </tbody>
         </table>
         {list.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p> : null}
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Registro do administrador</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Tudo o que foi feito por aqui: quem, o quê, para quem e quando.</p>
+          {audit.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>
+          ) : (
+            <ol className="mt-4 grid gap-2 text-sm">
+              {audit.map((entry) => (
+                <li key={entry.id} className="grid gap-0.5 rounded-lg bg-muted/40 px-3 py-2">
+                  <span className="font-medium">
+                    {ADMIN_ACTION_LABELS[entry.action] ?? entry.action}
+                    {entry.targetEmail ? ` · ${entry.targetEmail}` : ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+                    {formatDateTime(entry.createdAt)} · por {entry.adminEmail}
+                    {entry.detail ? ` · ${entry.detail}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <section className="rounded-2xl border bg-card p-5 shadow-xs">
+          <h2 className="font-bold">Cópias de segurança</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Uma cópia criptografada do banco por dia, guardada por {BACKUP_DAYS} dias. O README explica como restaurar.
+          </p>
+          {!backupsEnabled() ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Desligadas: precisam do armazenamento de arquivos (R2) e de <code>RECEBI_ENCRYPTION_KEY</code>.
+            </p>
+          ) : backups.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">A primeira cópia é feita nas tarefas automáticas do dia.</p>
+          ) : (
+            <ul className="mt-4 grid gap-2 text-sm">
+              {backups.map((backup) => (
+                <li key={backup.key} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                  <span className="tabular">
+                    {formatDate(backup.date)} · {(backup.size / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB
+                  </span>
+                  <a href={`${APP_PATH}/admin/backup/${backup.date}`} className="font-semibold underline underline-offset-2">
+                    Baixar (criptografada)
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </>
   );

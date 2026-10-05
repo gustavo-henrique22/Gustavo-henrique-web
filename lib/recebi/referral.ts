@@ -5,12 +5,14 @@ import { getDb } from "@/db";
 import { payments, referralRewards, users, type User } from "@/db/schema";
 import { notify } from "./activity";
 import { APP_PATH } from "./config";
-import { addDays, addMonthsToDate, todayISO } from "./dates";
+import { trialFields } from "./trial";
+import { addMonthsToDate, todayISO } from "./dates";
 import { sendReferralRewardEmail } from "./notifications";
 import { sqliteTimestamp } from "./rate-limit";
 
 export const REFERRAL_COOKIE = "recebi_ref";
-export const REFERRED_TRIAL_DAYS = 7;
+/** Quem chega por convite ganha o dobro do teste grátis normal. */
+export const REFERRED_TRIAL_DAYS = 14;
 export const REWARD_MONTHS = 1;
 export const MAX_REWARDS_PER_YEAR = 12;
 
@@ -68,7 +70,7 @@ export async function applyReferral(newUser: Pick<User, "id" | "name" | "email">
   const db = getDb();
   const updated = await db
     .update(users)
-    .set({ referredBy: referrer.id, plan: "pro", planExpiresAt: addDays(todayISO(), REFERRED_TRIAL_DAYS) })
+    .set({ referredBy: referrer.id, ...trialFields(REFERRED_TRIAL_DAYS) })
     .where(and(eq(users.id, newUser.id), eq(users.isDemo, false)))
     .returning({ id: users.id });
   if (updated.length === 0) return false;

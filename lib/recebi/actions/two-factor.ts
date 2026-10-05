@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { fail, success, text, type ActionState } from "../action-state";
-import { destroyOtherSessions, GOOGLE_ONLY_PASSWORD, requireUser, verifyPassword } from "../auth";
+import { destroyOtherSessions, GOOGLE_ONLY_PASSWORD, requireActor, verifyPassword } from "../auth";
 import { APP_PATH, BASE_PATH } from "../config";
 import { completeLogin } from "../login";
 import { sendTwoFactorEmail } from "../notifications";
@@ -28,7 +28,7 @@ const SECURITY_PATH = `${APP_PATH}/configuracoes/seguranca`;
 
 /** Passo 1: cria um segredo novo (ainda não vale para o login) e mostra o QR Code. */
 export async function beginTwoFactorSetup(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail("Crie sua conta para ativar a verificação em duas etapas.");
   if (twoFactorEnabled(user)) return fail("A verificação em duas etapas já está ativa.");
   const secret = generateTotpSecret();
@@ -41,7 +41,7 @@ export async function beginTwoFactorSetup(): Promise<ActionState> {
 }
 
 export async function cancelTwoFactorSetup(): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (twoFactorEnabled(user)) return fail("A verificação já está ativa.");
   await getDb().update(users).set({ totpSecret: null }).where(eq(users.id, user.id));
   revalidatePath(SECURITY_PATH);
@@ -50,7 +50,7 @@ export async function cancelTwoFactorSetup(): Promise<ActionState> {
 
 /** Passo 2: a pessoa digita o código do app. Se bater, liga a verificação e devolve os códigos de recuperação. */
 export async function confirmTwoFactorSetup(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireActor();
   if (user.isDemo) return fail("Crie sua conta para ativar a verificação em duas etapas.");
   if (twoFactorEnabled(user)) return fail("A verificação em duas etapas já está ativa.");
   if (!(await takeRateLimit(`2fa-setup:${user.id}`, 10, 3_600_000))) return fail("Muitas tentativas. Tente de novo em uma hora.");
@@ -70,7 +70,7 @@ export async function confirmTwoFactorSetup(_: ActionState, formData: FormData):
 
 /** Confere senha (quando a conta tem) e código antes de mudanças sensíveis na verificação. */
 async function confirmIdentity(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireActor();
   if (!twoFactorEnabled(user)) return { user, error: "A verificação em duas etapas não está ativa." };
   if (!(await takeRateLimit(`2fa-gerenciar:${user.id}`, 10, 3_600_000)))
     return { user, error: "Muitas tentativas. Tente de novo em uma hora." };

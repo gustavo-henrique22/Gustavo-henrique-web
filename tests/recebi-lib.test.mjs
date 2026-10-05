@@ -552,3 +552,80 @@ test("sends HTTP visitors to HTTPS, except on this computer", () => {
   assert.equal(headers.httpsRedirectUrl("http://localhost:5173/recebi", "http"), null);
   assert.equal(headers.httpsRedirectUrl("http://127.0.0.1:4173/recebi", "http"), null);
 });
+
+test("MEI forecast warns before the annual limit and estimates the DAS", async () => {
+  const { meiForecast, DEFAULT_DAS_CENTS } = await vite.ssrLoadModule("/lib/recebi/mei.ts");
+  const calm = meiForecast({ incomeYear: 3_000_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 0 });
+  assert.equal(calm.level, "ok");
+  assert.equal(calm.projectedIncome, 6_000_000);
+  assert.equal(calm.dasMonthly, DEFAULT_DAS_CENTS);
+  assert.equal(calm.dasRemaining, DEFAULT_DAS_CENTS * 6);
+  const close = meiForecast({ incomeYear: 3_500_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 7_500 });
+  assert.equal(close.level, "atencao");
+  assert.equal(close.dasMonthly, 7_500);
+  const over = meiForecast({ incomeYear: 5_000_000, monthsElapsed: 6, annualLimitCents: 8_100_000, dasCents: 0 });
+  assert.equal(over.level, "estoura");
+  assert.equal(over.limitMonth, 10);
+  assert.equal(meiForecast({ incomeYear: 9_000_000, monthsElapsed: 11, annualLimitCents: 8_100_000, dasCents: 0 }).level, "passou");
+});
+
+test("coupon codes are normalized and trial windows are computed from today", async () => {
+  const { normalizeCode } = await vite.ssrLoadModule("/lib/recebi/coupon-code.ts");
+  assert.equal(normalizeCode("  volta30 "), "VOLTA30");
+  assert.equal(normalizeCode("a b<script>"), "ABSCRIPT");
+  assert.equal(normalizeCode("x".repeat(50)).length, 32);
+  const { onTrial, trialFields, trialDaysLeft, TRIAL_DAYS } = await vite.ssrLoadModule("/lib/recebi/trial.ts");
+  const fields = trialFields();
+  assert.equal(fields.plan, "pro");
+  assert.equal(fields.planExpiresAt, fields.trialEndsAt);
+  assert.ok(onTrial(fields));
+  assert.equal(trialDaysLeft(fields), TRIAL_DAYS);
+  // Depois de pagar, a validade muda e deixa de ser teste.
+  assert.equal(onTrial({ ...fields, planExpiresAt: "2099-01-01" }), false);
+});
+
+test("WhatsApp charge messages fit the moment and keep the payment link", async () => {
+  const { chargeMessage, whatsappLink } = await vite.ssrLoadModule("/lib/recebi/charge-message.ts");
+  const base = { clientName: "Joana Silva", number: 7, totalCents: 150000, link: "https://x.test/recebi/c/abc", ownerName: "Ana" };
+  const before = chargeMessage({ ...base, dueDate: "2026-10-10", today: "2026-10-05" });
+  assert.match(before, /^Olá, Joana! Segue a cobrança #0007/);
+  assert.match(before, /https:\/\/x\.test\/recebi\/c\/abc/);
+  assert.match(chargeMessage({ ...base, dueDate: "2026-10-05", today: "2026-10-05" }), /vence hoje/);
+  assert.match(chargeMessage({ ...base, dueDate: "2026-10-01", today: "2026-10-05" }), /venceu em 01\/10\/2026 \(4 dias atrás\)/);
+  assert.equal(whatsappLink("(11) 98765-4321", "oi"), "https://wa.me/5511987654321?text=oi");
+  assert.equal(whatsappLink(null, "oi"), "https://wa.me/?text=oi");
+});
+
+test("achievements unlock from real milestones and error text is scrubbed", async () => {
+  const { evaluateAchievements, profitStreak } = await vite.ssrLoadModule("/lib/recebi/achievement-rules.ts");
+  assert.equal(profitStreak([100, -5, 10, 20, 30]), 3);
+  assert.equal(profitStreak([10, 0]), 0);
+  const none = evaluateAchievements({
+    paidInvoices: 0,
+    totalReceivedCents: 0,
+    approvedQuotes: 0,
+    clients: 0,
+    monthlyProfit: [],
+    goalCents: 0,
+    monthIncomeCents: 0,
+  });
+  assert.ok(none.every((a) => !a.earned));
+  const some = evaluateAchievements({
+    paidInvoices: 12,
+    totalReceivedCents: 1_500_000,
+    approvedQuotes: 1,
+    clients: 3,
+    monthlyProfit: [1, 2, 3],
+    goalCents: 500_000,
+    monthIncomeCents: 600_000,
+  });
+  const earned = some.filter((a) => a.earned).map((a) => a.key);
+  assert.deepEqual(earned, ["primeira-cobranca", "dez-cobrancas", "orcamento-aprovado", "meta-batida", "tres-meses-lucro", "dez-mil"]);
+});
+
+test("error reports never keep e-mails, documents or link tokens", async () => {
+  const { scrubErrorText } = await vite.ssrLoadModule("/lib/recebi/error-scrub.ts");
+  const out = scrubErrorText("Falha para ana@x.com CPF 123.456.789-00 em /c/AbCdEfGhIjKlMnOpQrStUvWxYz12");
+  assert.doesNotMatch(out, /ana@x\.com|123\.456|AbCdEfGh/);
+  assert.match(out, /\[email\].*\[número\].*\[token\]/);
+});

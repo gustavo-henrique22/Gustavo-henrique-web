@@ -8,7 +8,7 @@ import { Logo } from "@/components/recebi/logo";
 import { PrintButton } from "@/components/recebi/print-button";
 import { QuoteDecision } from "@/components/recebi/quote-decision";
 import { recordView } from "@/lib/recebi/activity";
-import { getCurrentUser, hasPro } from "@/lib/recebi/auth";
+import { getAccount, hasPro } from "@/lib/recebi/auth";
 import { BASE_PATH } from "@/lib/recebi/config";
 import { getPublicQuote } from "@/lib/recebi/data";
 import { formatDate, todayISO } from "@/lib/recebi/dates";
@@ -29,7 +29,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const data = await getPublicQuote(token);
   if (!data) notFound();
   const { quote, items, client, owner, invoiceToken } = data;
-  await recordView("orcamento", quote, (await getCurrentUser())?.id ?? null, client?.name ?? null);
+  await recordView("orcamento", quote, (await getAccount())?.id ?? null, client?.name ?? null);
   const ownerName = owner.businessName || owner.name;
   const expired = quote.status === "enviado" && quote.validUntil < todayISO();
 
@@ -67,9 +67,25 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
 
       <QuoteDocument quote={quote} items={items} client={client} owner={owner} logoUrl={logoUrlFor(owner)} className="print-flat" />
 
+      {quote.contractText ? (
+        <section aria-labelledby="contrato" className="mt-6 rounded-2xl border bg-card p-6 shadow-xs print-flat">
+          <h2 id="contrato" className="mb-3 text-lg font-bold">
+            Contrato de prestação de serviços
+          </h2>
+          <div className="max-h-96 overflow-y-auto pr-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground print:max-h-none">
+            {quote.contractText}
+          </div>
+          {quote.status === "aprovado" && quote.acceptedName ? (
+            <p className="mt-4 rounded-lg bg-income/10 px-3 py-2 text-xs text-income">
+              Aceito eletronicamente por {quote.acceptedName} em {formatDate(quote.decidedAt?.slice(0, 10))}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {quote.status === "enviado" && !expired ? (
         <div className="no-print mt-6">
-          <QuoteDecision token={token} totalCents={quote.totalCents} ownerName={ownerName} />
+          <QuoteDecision token={token} totalCents={quote.totalCents} ownerName={ownerName} hasContract={!!quote.contractText} />
         </div>
       ) : null}
 
